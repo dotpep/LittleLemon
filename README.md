@@ -19,6 +19,7 @@ This is project that provide website and system for Restourant.
 - try Poetry
 
 - provide Documentation for API
+- write Tests
 
 ### TODO Decomposition
 
@@ -49,6 +50,15 @@ This is project that provide website and system for Restourant.
 Admin SuperUser:
 username: admin
 password: admin
+
+## Table of Content
+
+- config 
+- api
+
+### Documentation
+
+- `docs/api/model` - is ER-D model design, shows relationship between declared models.
 
 ## Source
 
