@@ -15,8 +15,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/v1/', include('api.urls'), name="LittleLemonAPI functionality"),
+    path('auth/', include('djoser.urls'), name="djoser authentication /api/users"),
+    path('', include('djoser.urls.authtoken'), name="djoser authtoken urls /token/login/ and /token/logout/"),
 ]

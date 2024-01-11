@@ -50,6 +50,16 @@ Admin SuperUser:
 username: admin
 password: admin
 
+## Source
+
+- Meta Back-End Developer Professional Certificate
+- other Internet Resourse
+
+### Original/Implementation procces Source
+
+- api app: `https://github.com/dotpep/python/tree/master/Meta_Back-End_Developer_coursera/APIs_DRF/LittleLemon`
+- restaurant app: `https://github.com/dotpep/python/tree/master/Meta_Back-End_Developer_coursera/Django_web_framework/week5_module5_summary`
+
 ## LICENCE
 
 MIT
