@@ -1,6 +1,6 @@
-# LittleLemon Restourant
+# LittleLemon Restaurant
 
-This is project that provide website and system for Restourant.
+This is project that provide website and system for Restaurant.
 
 ## Features 
 
@@ -14,12 +14,22 @@ This is project that provide website and system for Restourant.
 ## TODO
 
 - want to improve and try tech like HTMX and Tailwind CSS.
-- try to add (frontend logic) React
-- try to integrate to mobile app using Flutter
+- try to integrate api (frontend logic) React
+- try to integrate api to mobile app using Flutter
 - try Poetry
 
+- connect MySQL/PostgreSQL
 - provide Documentation for API
 - write Tests
+
+Just for feature:
+- Docker
+- Nginx, Web-server
+- Gunicorn
+- Celery, Redis, RabbitMQ
+- CI/CD, GitHub pipeline, deployment to VPS with domain name.
+- Docker Compose/Kubernates
+- Asyncio
 
 ### TODO Decomposition
 
