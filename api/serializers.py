@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Category, MenuItem
+from django.contrib.auth.models import User, Group
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -16,3 +17,17 @@ class MenuItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuItem
         fields = ['id', 'title', 'price', 'featured', 'category', 'category_id']
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ['name']
+
+
+class UserSerializer(serializers.ModelSerializer):
+    groups = GroupSerializer(many=True)
+    
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'groups']
