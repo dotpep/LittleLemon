@@ -1,16 +1,16 @@
 from rest_framework import serializers
 
-from .models import MenuItem, MenuItem
+from .models import Category, MenuItem
 
 
-class MenuItemSerializer(serializers.ModelSerializer):
+class CategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = MenuItem
+        model = Category
         fields = ['id', 'title', 'slug']
 
 
 class MenuItemSerializer(serializers.ModelSerializer):
-    category = MenuItemSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True)
     
     class Meta:

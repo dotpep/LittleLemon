@@ -4,8 +4,9 @@ This is project that provide website and system for Restaurant.
 
 ## Features 
 
-- api app (api)
-- django template app (restaurant)
+Apps:
+- Django Rest API app (api)
+- Django Template app (restaurant)
 
 ### API features
 
@@ -19,8 +20,8 @@ This is project that provide website and system for Restaurant.
 - try Poetry
 
 - connect MySQL/PostgreSQL
-- provide Documentation for API
-- write Tests
+- provide Documentation for API with Swagger
+- write Tests with PyTest
 
 Just for future:
 - Docker
@@ -30,6 +31,8 @@ Just for future:
 - CI/CD, GitHub pipeline, deployment to VPS with domain name.
 - Docker Compose/Kubernates
 - Asyncio
+
+- Stripe payment system with GEO GPS location tracter with Delivery crew order
 
 ### TODO Decomposition
 
@@ -68,6 +71,7 @@ password: admin
 
 ### Documentation
 
+- `docs/` - documentation 
 - `docs/api/model` - is ER-D model design, shows relationship between declared models.
 
 ## Source
