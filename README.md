@@ -5,7 +5,7 @@ This is project that provide website and system for Restaurant.
 ## Features 
 
 - api app (api)
-- django template app (restourant)
+- django template app (restaurant)
 
 ### API features
 
@@ -22,7 +22,7 @@ This is project that provide website and system for Restaurant.
 - provide Documentation for API
 - write Tests
 
-Just for feature:
+Just for future:
 - Docker
 - Nginx, Web-server
 - Gunicorn

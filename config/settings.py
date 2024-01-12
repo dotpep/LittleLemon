@@ -141,3 +141,9 @@ REST_FRAMEWORK = {
 DJOSER = {
     "USER_ID_FIELD": "username",
 }
+
+
+# Declared Group/Role Permissions
+AUTH_USER_BY_DEFAULT_IS = 'Customer'
+MANAGER_GROUP_NAME = 'Manager'
+DELIVERY_CREW_GROUP_NAME = 'Delivery crew'
