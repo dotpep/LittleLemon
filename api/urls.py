@@ -14,6 +14,9 @@ urlpatterns = [
     path('groups/manager/users/<int:user_id>/', views.manage_manager_user),
     path('groups/delivery-crew/users/', views.manage_delivery_crew_users),
     path('groups/delivery-crew/users/<int:user_id>/', views.manage_delivery_crew_user),
+    # Cart management endpoints
+    path('cart/menu-items', views.cart_items),
+    
     
     # Testing
     path('groups/names/', views.get_group_name_mapping),

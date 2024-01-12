@@ -4,8 +4,8 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 
 
-from .models import Category, MenuItem
-from .serializers import CategorySerializer, MenuItemSerializer, UserSerializer
+from .models import Category, MenuItem, Cart
+from .serializers import CategorySerializer, MenuItemSerializer, UserSerializer, CartSerializer
 from django.contrib.auth.models import User, Group
 
 from django.conf import settings
@@ -13,6 +13,7 @@ from django.conf import settings
 
 # Validation
 from django.forms import ValidationError
+from decimal import Decimal, InvalidOperation
 
 # for Custom class Permission
 from rest_framework.permissions import BasePermission
@@ -85,12 +86,12 @@ def destroy_item(item: Model) -> Response:
     """Delete an existing item. Method: DELETE"""
     item.delete()
     return Response(
-        {"status_code": status.HTTP_204_NO_CONTENT, "message": "Item Successfully deleted."},
+        {"status_code": status.HTTP_204_NO_CONTENT, "detail": "Item Successfully deleted."},
         status=status.HTTP_204_NO_CONTENT
     )
 
 
-def handle_items_view(request: HttpRequest, Model: Model, ModelSerializeer: ModelSerializer):
+def handle_items(request: HttpRequest, Model: Model, ModelSerializeer: ModelSerializer) -> Response:
     """Handle views for a list of items and create new item. Method: GET, POST"""
     if request.method == 'GET':
         return get_list_of_item(Model=Model, ModelSerializer=ModelSerializeer)
@@ -104,9 +105,11 @@ def handle_items_view(request: HttpRequest, Model: Model, ModelSerializeer: Mode
     
     if request.method == 'POST':
         return create_new_item(request=request, ModelSerializer=ModelSerializeer)
+    else:
+        return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-def handle_item_views(request: HttpRequest, item_id, Model: Model, ModelSerializeer: ModelSerializer):
+def handle_item(request: HttpRequest, item_id, Model: Model, ModelSerializeer: ModelSerializer) -> Response:
     """Handle views for a single item and manipulate item. Method: GET, PUT, PATCH, DELETE"""
     try:
         parsed_item = get_object_or_404(Model, pk=item_id)
@@ -132,28 +135,30 @@ def handle_item_views(request: HttpRequest, item_id, Model: Model, ModelSerializ
         return partial_update_item(request=request, item=parsed_item, ModelSerializer=ModelSerializeer)
     elif request.method == 'DELETE':
         return destroy_item(item=parsed_item)
+    else:
+        return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 # Category views
 @api_view(['GET', 'POST'])
 def categories(request):
-    return handle_items_view(request=request, Model=Category, ModelSerializeer=CategorySerializer)
+    return handle_items(request=request, Model=Category, ModelSerializeer=CategorySerializer)
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def single_category(request, item_id=None):
-    return handle_item_views(request=request, item_id=item_id, Model=Category, ModelSerializeer=CategorySerializer)
+    return handle_item(request=request, item_id=item_id, Model=Category, ModelSerializeer=CategorySerializer)
 
 
 # MenuItem views
 @api_view(['GET', 'POST'])
 def menu_items(request):
-    return handle_items_view(request=request, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
+    return handle_items(request=request, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def single_menu_item(request, item_id=None):
-    return handle_item_views(request=request, item_id=item_id, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
+    return handle_item(request=request, item_id=item_id, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
 
 
 # User group management
@@ -192,7 +197,7 @@ def assign_user_to_group(user: User, group: Group, group_name: settings) -> Resp
     if not user.groups.filter(name=group_name).exists():
         group.user_set.add(user)
         return Response(
-            {"status_code": status.HTTP_201_CREATED, "message": f"{user.username}, Was Successfully Added to {group_name} group."}, 
+            {"status_code": status.HTTP_201_CREATED, "detail": f"{user.username}, Was Successfully Added to {group_name} group."}, 
             status=status.HTTP_201_CREATED
         )
     return Response(
@@ -205,7 +210,7 @@ def remove_user_from_group(user: User, group: Group, group_name: str) -> Respons
     if user.groups.filter(name=group_name).exists():
         group.user_set.remove(user)
         return Response(
-            {"status_code": status.HTTP_200_OK, "message": f"{user.username}, Was Successfully Deleted from {group_name} group."}, 
+            {"status_code": status.HTTP_200_OK, "detail": f"{user.username}, Was Successfully Deleted from {group_name} group."}, 
             status=status.HTTP_200_OK
         )
     return Response(
@@ -221,7 +226,7 @@ def assign_or_remove_user_from_group(request: HttpRequest, group_name: str, acti
         user = get_object_or_404(User, username=username)
     except KeyError as e:
         return Response(
-            {"status_code": status.HTTP_400_BAD_REQUEST, "message": {"error_message": str(e).replace("'", ""), "username": "This field is required."}}, 
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "This field is required."}}, 
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -236,7 +241,7 @@ def assign_or_remove_user_from_group(request: HttpRequest, group_name: str, acti
         )
 
 
-def handle_users_management_views(request: HttpRequest, group_name: settings):
+def handle_users_group_management(request: HttpRequest, group_name: settings) -> Response:
     """Handle views for a user management actions for a group. Method: GET, POST, DELETE"""
     if request.method == 'GET':
         return get_users_in_group(group_name=group_name)
@@ -244,37 +249,135 @@ def handle_users_management_views(request: HttpRequest, group_name: settings):
         return assign_or_remove_user_from_group(request=request, group_name=group_name, action='assign')
     elif request.method == 'DELETE':
         return assign_or_remove_user_from_group(request=request, group_name=group_name, action='remove')
+    else:
+        return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 # TODO: type hinting for user_id
-def handle_user_management_views(request: HttpRequest, user_id, group_name: settings):
+def handle_user_group_management(request: HttpRequest, user_id, group_name: settings) -> Response:
     """Handle views for a user management actions for a single user in a group. Method: DELETE"""
     if request.method == 'DELETE':
         return remove_user_from_group(user_id=user_id, group_name=group_name)
+    else:
+        return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 # TODO: refactor naming convension for functions, variable
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsGroupManager])
 def manage_manager_users(request):
-    return handle_users_management_views(request=request, group_name=settings.MANAGER_GROUP_NAME)
+    return handle_users_group_management(request=request, group_name=settings.MANAGER_GROUP_NAME)
 
 @api_view(['DELETE'])
 @permission_classes([IsGroupManager])
 def manage_manager_user(request, user_id):
-    return handle_user_management_views(request=request, user_id=user_id, group_name=settings.MANAGER_GROUP_NAME)
+    return handle_user_group_management(request=request, user_id=user_id, group_name=settings.MANAGER_GROUP_NAME)
 
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsGroupManager])
 def manage_delivery_crew_users(request):
-    return handle_users_management_views(request=request, group_name=settings.DELIVERY_CREW_GROUP_NAME)
+    return handle_users_group_management(request=request, group_name=settings.DELIVERY_CREW_GROUP_NAME)
 
 @api_view(['DELETE'])
 @permission_classes([IsGroupManager])
 def manage_delivery_crew_user(request, user_id):
-    return handle_user_management_views(request=request, user_id=user_id, group_name=settings.DELIVERY_CREW_GROUP_NAME)
+    return handle_user_group_management(request=request, user_id=user_id, group_name=settings.DELIVERY_CREW_GROUP_NAME)
 
 
+# Cart management
+
+# Custom class Permission for Authenticated users that by default Customer
+class IsOnlyCustomer(BasePermission):
+    """Only allow access to customers (authenticated users who are not staff within any group like Manager or Delivery crew)"""
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and not any((
+            request.user.is_staff, 
+            request.user.groups.filter(name=settings.MANAGER_GROUP_NAME).exists(),
+            request.user.groups.filter(name=settings.DELIVERY_CREW_GROUP_NAME).exists()
+        ))
+
+
+# Helper Function for Cart management
+def calculate_total_price(menu_item_id, quantity) -> float:
+    """Calculate total price for a menu item."""
+    menu_item = get_object_or_404(MenuItem, id=menu_item_id)
+    unit_price = menu_item.price
+    total_quantity_price = unit_price * quantity
+    return total_quantity_price
+
+def get_user_cart_items(request: HttpRequest) -> Response:
+    """Get a list of cart items for the authenticated user."""
+    cart_items = Cart.objects.filter(user=request.user)
+    
+    if not cart_items.exists():
+        return Response(
+            {"detail": "Your cart is empty. Please add something tasty."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    serializer = CartSerializer(cart_items, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+def add_menu_item_to_cart(request) -> Response:
+    """Add a menu item to the user's cart."""
+    menu_item_id = request.data.get('menuitem')
+    quantity = request.data.get('quantity')
+
+    # Convert quantity to a numeric type (e.g., int or Decimal)
+    try:
+        quantity = Decimal(quantity)
+    except InvalidOperation as e:
+        return Response(
+            {"status_code": status.HTTP_400_BAD_REQUEST, "error_message": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Calculate total price
+    total_price = calculate_total_price(menu_item_id, quantity)
+    
+    # Serialize data
+    serializer = CartSerializer(data={
+        "user": request.user.id,
+        "menuitem": menu_item_id,
+        "quantity": quantity,
+        "unit_price": total_price / quantity,
+        "price": total_price
+    })
+    
+    try:
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except ValidationError as e:
+        return Response(
+            {"status_code": status.HTTP_400_BAD_REQUEST, "error_message": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+def clean_user_cart_item(request) -> Response:
+    """Delete all cart items added by the authenticated user."""
+    Cart.objects.filter(user=request.user).delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def handle_cart_request(request: HttpRequest) -> Response:
+    """Handle cart view based on the HTTP method."""
+    if request.method == 'GET':
+        return get_user_cart_items(request=request)
+    elif request.method == 'POST':
+        return add_menu_item_to_cart(request=request)
+    elif request.method == 'DELETE':
+        return clean_user_cart_item(request=request)
+    else:
+        return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+@permission_classes([IsOnlyCustomer])
+def cart_items(request):
+    return handle_cart_request(request=request)
+    
 
 
 # Testing
