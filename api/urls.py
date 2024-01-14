@@ -16,6 +16,9 @@ urlpatterns = [
     path('groups/delivery-crew/users/<int:user_id>/', views.manage_delivery_crew_user),
     # Cart management endpoints
     path('cart/menu-items', views.cart_items),
+    # Order management endpoints
+    path('orders/', views.orders),
+    path('orders/<int:order_id>', views.order),
     
     
     # Testing

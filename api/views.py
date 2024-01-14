@@ -2,10 +2,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+import datetime
 
 
-from .models import Category, MenuItem, Cart
-from .serializers import CategorySerializer, MenuItemSerializer, UserSerializer, CartSerializer
+from .models import Category, MenuItem, Cart, Order, OrderItem
+from .serializers import CategorySerializer, MenuItemSerializer, UserSerializer, CartSerializer, OrderSerializer, OrderItemSerializer
 from django.contrib.auth.models import User, Group
 
 from django.conf import settings
@@ -28,7 +29,8 @@ from django.http import HttpRequest
 # Helper Function for Category and MenuItem views
 def is_group_has_permission(request: HttpRequest, group_name: str) -> bool:
     """Check if user is in the specified group or is a staff member."""
-    return any((request.user.groups.filter(name=group_name).exists(), request.user.is_staff))
+    user = request.user
+    return any((user.groups.filter(name=group_name).exists(), user.is_staff))
 
 
 def get_list_of_item(Model: Model, ModelSerializer: ModelSerializer) -> Response:
@@ -99,7 +101,7 @@ def handle_items(request: HttpRequest, Model: Model, ModelSerializeer: ModelSeri
     # Check Permissions for POST
     if not is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME):
         return Response(
-            {"status_code": status.HTTP_403_FORBIDDEN, "error_message": "Unauthorized - Permission Denied."},
+            {"status_code": status.HTTP_403_FORBIDDEN, "error_message": "Permission Denied."},
             status=status.HTTP_403_FORBIDDEN
         )
     
@@ -109,7 +111,7 @@ def handle_items(request: HttpRequest, Model: Model, ModelSerializeer: ModelSeri
         return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-def handle_item(request: HttpRequest, item_id, Model: Model, ModelSerializeer: ModelSerializer) -> Response:
+def handle_item(request: HttpRequest, item_id: int, Model: Model, ModelSerializeer: ModelSerializer) -> Response:
     """Handle views for a single item and manipulate item. Method: GET, PUT, PATCH, DELETE"""
     try:
         parsed_item = get_object_or_404(Model, pk=item_id)
@@ -125,7 +127,7 @@ def handle_item(request: HttpRequest, item_id, Model: Model, ModelSerializeer: M
     # Check Permissions for PUT, PATCH, DELETE
     if not is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME):
             return Response(
-                {"status_code": status.HTTP_403_FORBIDDEN, "error_message": "Unauthorized - Permission Denied."},
+                {"status_code": status.HTTP_403_FORBIDDEN, "error_message": "Permission Denied."},
                 status=status.HTTP_403_FORBIDDEN
             )
     
@@ -174,15 +176,12 @@ class IsGroupManager(BasePermission):
             request.user.groups.filter(name=settings.MANAGER_GROUP_NAME).exists()
         ))
 
-class IsGroupDeliveryCrew(BasePermission):
+class IsGroupOnlyDeliveryCrew(BasePermission):
     """
     Allows access only to Authenticated users with Delivery Crew Group/Role Permissions.
     """
     def has_permission(self, request, view) -> bool:
-        return request.user.is_authenticated and any((
-            request.user.is_staff, 
-            request.user.groups.filter(name=settings.DELIVERY_CREW_GROUP_NAME).exists()
-        ))
+        return request.user.is_authenticated and request.user.groups.filter(name=settings.DELIVERY_CREW_GROUP_NAME).exists()
 
 
 # Helper Function for User group management
@@ -253,8 +252,7 @@ def handle_users_group_management(request: HttpRequest, group_name: settings) ->
         return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-# TODO: type hinting for user_id
-def handle_user_group_management(request: HttpRequest, user_id, group_name: settings) -> Response:
+def handle_user_group_management(request: HttpRequest, user_id: int, group_name: settings) -> Response:
     """Handle views for a user management actions for a single user in a group. Method: DELETE"""
     if request.method == 'DELETE':
         return remove_user_from_group(user_id=user_id, group_name=group_name)
@@ -298,13 +296,6 @@ class IsOnlyCustomer(BasePermission):
 
 
 # Helper Function for Cart management
-def calculate_total_price(menu_item_id, quantity) -> float:
-    """Calculate total price for a menu item."""
-    menu_item = get_object_or_404(MenuItem, id=menu_item_id)
-    unit_price = menu_item.price
-    total_quantity_price = unit_price * quantity
-    return total_quantity_price
-
 def get_user_cart_items(request: HttpRequest) -> Response:
     """Get a list of cart items for the authenticated user."""
     cart_items = Cart.objects.filter(user=request.user)
@@ -318,7 +309,7 @@ def get_user_cart_items(request: HttpRequest) -> Response:
     serializer = CartSerializer(cart_items, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-def add_menu_item_to_cart(request) -> Response:
+def add_menu_item_to_cart(request: HttpRequest) -> Response:
     """Add a menu item to the user's cart."""
     menu_item_id = request.data.get('menuitem')
     quantity = request.data.get('quantity')
@@ -333,7 +324,8 @@ def add_menu_item_to_cart(request) -> Response:
         )
     
     # Calculate total price
-    total_price = calculate_total_price(menu_item_id, quantity)
+    menu_item = get_object_or_404(MenuItem, id=menu_item_id)
+    total_price = menu_item.price * quantity
     
     # Serialize data
     serializer = CartSerializer(data={
@@ -355,7 +347,7 @@ def add_menu_item_to_cart(request) -> Response:
         )
 
 
-def clean_user_cart_item(request) -> Response:
+def clean_user_cart_item(request: HttpRequest) -> Response:
     """Delete all cart items added by the authenticated user."""
     Cart.objects.filter(user=request.user).delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
@@ -377,7 +369,211 @@ def handle_cart_request(request: HttpRequest) -> Response:
 @permission_classes([IsOnlyCustomer])
 def cart_items(request):
     return handle_cart_request(request=request)
+
+
+# Order management
+@api_view(['GET', 'POST'])
+def orders(request: HttpRequest):
+    manager = request.user.groups.filter(name='Manager').exists()
+    delivery = request.user.groups.filter(name='Delivery crew').exists()
+    admin = request.user.is_staff
     
+    if request.method == 'GET':
+
+        if manager or admin:
+            # Manager can retrieve all Orders of all users
+            orders = Order.objects.all()
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        
+        elif delivery:
+            orders = Order.objects.filter(delivery_crew=request.user)
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        
+        else:  # Customer
+            # Customer can view created Orders
+            orders = Order.objects.filter(user=request.user)
+            
+            if not orders.exists():
+                return Response(
+                    {"detail": "Your order is empty. Please add push your cart something tasty and order it."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    if request.method == 'POST':
+        if manager or admin or delivery:
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        else:
+            # Current Customer creates new order item, by gets user customer cart items and adds those items to order items table, then it deleted
+            cart_items = Cart.objects.filter(user=request.user)
+
+            if not cart_items.exists():
+                return Response(
+                    {"detail": "Your cart is empty. Please add your cart something tasty."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Calculate total price
+            total_price = sum(item.price for item in cart_items)
+            
+            # Order model Instance
+            order = Order.objects.create(
+                user=request.user,
+                date=datetime.date.today(),
+                total=total_price,
+                status=False
+            )
+            
+            # OrderItem model Instance
+            for cart_item in cart_items:
+                OrderItem.objects.create(
+                    order=order,
+                    menuitem=cart_item.menuitem,
+                    quantity=cart_item.quantity,
+                    unit_price=cart_item.unit_price,
+                    price=cart_item.price
+                )
+            
+            
+            cart_items.delete()
+            
+            return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
+    
+    
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def order(request, order_id):
+    manager: bool = request.user.groups.filter(name='Manager').exists()
+    delivery: bool = request.user.groups.filter(name='Delivery crew').exists()
+    admin: bool = request.user.is_staff
+    
+    if request.method == 'GET':
+        if manager or admin or delivery:
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        else:  # Customer
+            # Customer can check order items using created order id
+            order = get_object_or_404(Order, id=order_id)
+
+            if order.user != request.user:
+                return Response(
+                    {"error": "Permission denied. This order does not belong to the current user."}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            order_items = OrderItem.objects.filter(order=order)
+            
+            if not order_items.exists():
+                return Response(
+                    {"detail": "Your Order is empty. Please add your cart something tasty and order it."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+            serializer = OrderItemSerializer(order_items, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+    
+       
+    if request.method == 'PUT':
+        # Manager put specific Delivery by username to deliver this specific order by id of order
+        if manager or admin:
+            try:
+                # TODO: also make it using delivery_id
+                parsed_username = request.data['username']
+                if not parsed_username:
+                    raise KeyError("Delivery crew username is required.")
+                
+                user = get_object_or_404(User, username=parsed_username)
+                if not user.groups.filter(name='Delivery crew').exists():
+                    raise ValueError("The specified user is not a part of the 'Delivery crew' group.")
+            
+            except KeyError as e:
+                return Response(
+                    {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "Delivery crew username is required."}},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except ValueError as e:
+                return Response(
+                    {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e)}},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            order = get_object_or_404(Order, id=order_id)
+            order.delivery_crew = user
+            order.save()
+            
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        
+    if request.method == 'PATCH':
+        # Manager update status: bool = 0/1, 0(in procces deliver) to 1(delivered) 
+        if manager or admin or delivery:
+            try:
+                #parsed_status = request.data['status']
+                parsed_status = request.data.get('status', None)
+                #if not parsed_status is None:
+                if parsed_status is None:
+                    raise KeyError("To change it status field is required.")
+                #if not isinstance(parsed_status, bool):
+                #    raise TypeError("Status must be 0(false) or 1(true)")
+                
+                # Convert parsed_status to a boolean
+                if parsed_status.lower() == 'true':
+                    parsed_status = True
+                elif parsed_status.lower() == 'false':
+                    parsed_status = False
+                else:
+                    raise ValueError("Status must be 'true' or 'false'.")
+
+                if not isinstance(parsed_status, bool):
+                    raise TypeError("Status must be a boolean (True or False).")
+                
+            except KeyError as e:
+                return Response(
+                    {
+                        "status_code": status.HTTP_400_BAD_REQUEST, 
+                        "detail": {"error_message": {str(e).replace("'", "")}},
+                        "raised_message": "To change it status field is required."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            #except TypeError as e:
+            except (TypeError, ValueError) as e:
+                return Response(
+                    {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e)}},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            order = get_object_or_404(Order, id=order_id)
+            order.status = parsed_status
+            order.save()
+            
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+
+    if request.method == 'DELETE':
+        # Only Manager and Admin can delete order and orderitem using order_id
+        if manager or admin:
+            order = get_object_or_404(Order, id=order_id)
+            order_items = OrderItem.objects.filter(order=order)
+            order.delete()
+            order_items.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"error": "Permission denied."})
+
 
 
 # Testing
