@@ -170,18 +170,22 @@ class IsGroupManager(BasePermission):
     """
     Allows access only to Authenticated users with Manager Group/Role Permissions.
     """
-    def has_permission(self, request, view) -> bool:
-        return request.user.is_authenticated and any((
-            request.user.is_staff, 
-            request.user.groups.filter(name=settings.MANAGER_GROUP_NAME).exists()
+    @staticmethod
+    def has_permission(request, view) -> bool:
+        user = request.user
+        return user.is_authenticated and any((
+            user.is_staff, 
+            user.groups.filter(name=settings.MANAGER_GROUP_NAME).exists()
         ))
 
 class IsGroupOnlyDeliveryCrew(BasePermission):
     """
     Allows access only to Authenticated users with Delivery Crew Group/Role Permissions.
     """
-    def has_permission(self, request, view) -> bool:
-        return request.user.is_authenticated and request.user.groups.filter(name=settings.DELIVERY_CREW_GROUP_NAME).exists()
+    @staticmethod
+    def has_permission(request, view) -> bool:
+        user = request.user
+        return user.is_authenticated and user.groups.filter(name=settings.DELIVERY_CREW_GROUP_NAME).exists()
 
 
 # Helper Function for User group management
@@ -287,11 +291,13 @@ def manage_delivery_crew_user(request, user_id):
 # Custom class Permission for Authenticated users that by default Customer
 class IsOnlyCustomer(BasePermission):
     """Only allow access to customers (authenticated users who are not staff within any group like Manager or Delivery crew)"""
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and not any((
-            request.user.is_staff, 
-            request.user.groups.filter(name=settings.MANAGER_GROUP_NAME).exists(),
-            request.user.groups.filter(name=settings.DELIVERY_CREW_GROUP_NAME).exists()
+    @staticmethod
+    def has_permission(request, view):
+        user = request.user
+        return user.is_authenticated and not any((
+            user.is_staff, 
+            user.groups.filter(name=settings.MANAGER_GROUP_NAME).exists(),
+            user.groups.filter(name=settings.DELIVERY_CREW_GROUP_NAME).exists()
         ))
 
 
@@ -372,207 +378,259 @@ def cart_items(request):
 
 
 # Order management
+def get_user_role(request: HttpRequest) -> str:
+    is_manager_or_admin = IsGroupManager.has_permission(request=request, view=None)
+    is_delivery_crew = IsGroupOnlyDeliveryCrew.has_permission(request=request, view=None)
+    
+    if is_manager_or_admin:
+        return 'manager'
+    elif is_delivery_crew:
+        return 'delivery'
+    else:  # Customer
+        return 'customer'
+
+def permission_denied(request=None, order_id=None) -> Response:
+    return Response(
+        {"detail": "Permission Denied."},
+        status=status.HTTP_403_FORBIDDEN
+    )
+
+def process_request(request: HttpRequest, method_handlers: dict):
+    """Dispatcher function to select the handler based on the user's role and HTTP method."""
+    user_group_router = get_user_role(request=request)
+    
+    # Get the specific handlers for the current HTTP method
+    request_handler = method_handlers[request.method]
+    
+    # Find the appropriate handler for the user's role
+    # If not found, default to the permission_denied handler
+    method_handler = request_handler.get(user_group_router, permission_denied())
+    
+    # Get the method that will be used to pass an argument to our functions in the dictionary
+    #return method_handler(request=request)
+    return method_handler
+
+
+# if delete argument of get_all_orders() got an unexpected keyword argument 'request' (dict method) to solve it pass request as None (unnessary parameter)
+def get_all_orders(request=None) -> Response:
+    """Manager can retrieve all Orders of all users"""
+    orders = Order.objects.all()
+    serializer = OrderSerializer(orders, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+def get_delivery_orders(request: HttpRequest) -> Response:
+    orders = Order.objects.filter(delivery_crew=request.user)
+    serializer = OrderSerializer(orders, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+def get_user_orders(request: HttpRequest) -> Response:
+    """Customer can view created Orders"""
+    order = Order.objects.filter(user=request.user)
+    
+    if not order.exists():
+        return Response(
+            {"detail": "Your order is empty. Please add push your cart something tasty and order it."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+        
+    serializer = OrderSerializer(order, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def create_new_order(request: HttpRequest) -> Response:
+    """Current Customer creates new order item, by gets user customer cart items and adds those items to order items table, then it deleted"""
+    cart_items = Cart.objects.filter(user=request.user)
+
+    if not cart_items.exists():
+        return Response(
+            {"detail": "Your cart is empty. Please add your cart something tasty."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Calculate total price
+    total_price = sum(item.price for item in cart_items)
+    
+    # Order model Instance
+    order = Order.objects.create(
+        user=request.user,
+        date=datetime.date.today(),
+        total=total_price,
+        status=False
+    )
+    
+    # OrderItem model Instance
+    for cart_item in cart_items:
+        OrderItem.objects.create(
+            order=order,
+            menuitem=cart_item.menuitem,
+            quantity=cart_item.quantity,
+            unit_price=cart_item.unit_price,
+            price=cart_item.price
+        )
+    
+    
+    cart_items.delete()
+    
+    return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
+
+
+def get_user_order_items(request: HttpRequest, order_id: int) -> Response:
+    """Customer can check order items using created order id"""
+    order = get_object_or_404(Order, id=order_id)
+
+    if order.user != request.user:
+        return Response(
+            {"error": "Permission denied. This order does not belong to the current user."}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    order_items = OrderItem.objects.filter(order=order)
+
+    if not order_items.exists():
+        return Response(
+            {"detail": "Your Order is empty. Please add your cart something tasty and order it."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+        
+    serializer = OrderItemSerializer(order_items, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def set_delivery_to_order(request: HttpRequest, order_id: int) -> Response:
+    """Manager put specific Delivery by username to deliver this specific order by id of order"""
+    try:
+        parsed_username = request.data['username']
+        if not parsed_username:
+            raise KeyError("Delivery crew username is required.")
+        
+        user = get_object_or_404(User, username=parsed_username)
+        if not user.groups.filter(name='Delivery crew').exists():
+            raise ValueError("The specified user is not a part of the 'Delivery crew' group.")
+    
+    except KeyError as e:
+        return Response(
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "Delivery crew username is required."}},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except ValueError as e:
+        return Response(
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e)}},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+        
+    order = get_object_or_404(Order, id=order_id)
+    order.delivery_crew = user
+    order.save()
+    
+    serializer = OrderSerializer(order)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def update_order_status(request: HttpRequest, order_id: int):
+    """Manager or Delivery update status: bool = 0/1, 0(in procces deliver) to 1(delivered)"""
+    try:
+        parsed_username = request.data['username']
+        if not parsed_username:
+            raise KeyError("Delivery crew username is required.")
+        
+        user = get_object_or_404(User, username=parsed_username)
+        if not user.groups.filter(name='Delivery crew').exists():
+            raise ValueError("The specified user is not a part of the 'Delivery crew' group.")
+    
+    except KeyError as e:
+        return Response(
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "Delivery crew username is required."}},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except ValueError as e:
+        return Response(
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e)}},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    order = get_object_or_404(Order, id=order_id)
+    order.delivery_crew = user
+    order.save()
+    
+    serializer = OrderSerializer(order)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def delete_single_order(order_id: int, request=None) -> Response:
+    """Only Manager and Admin can delete order and orderitem using order_id"""
+    order = get_object_or_404(Order, id=order_id)
+    order_items = OrderItem.objects.filter(order=order)
+    order.delete()
+    order_items.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def handle_orders(request: HttpRequest) -> Response:
+    method_handlers: dict = {
+        'GET': {
+            'manager': get_all_orders,
+            'delivery': get_delivery_orders,
+            'customer': get_user_orders,
+        },
+        'POST': {
+            'manager': permission_denied,
+            'delivery': permission_denied,
+            'customer': create_new_order,
+        }
+    }
+    
+    
+    # Dispatching Using a Dictionary for request.method and has_permissions group/role by executing function with passed arguments
+    pass_argument_into_function_dict_method = process_request(request=request, method_handlers=method_handlers)
+    
+    return pass_argument_into_function_dict_method(request=request)
+    
+
+    #user_group_router = get_user_role(request=request)
+    
+    #method_handler = method_handlers[request.method].get(user_group_router, permission_denied())
+    
+    #return method_handler(request=request)
+
+
+def handle_order(request: HttpRequest, order_id: int) -> Response:
+    method_handlers: dict = {
+        'GET': {
+            'manager': permission_denied,
+            'delivery': permission_denied,
+            'customer': get_user_order_items,
+        },
+        'PUT': {
+            'manager': set_delivery_to_order,
+            'delivery': permission_denied,
+            'customer': permission_denied,
+        },
+        'PATCH': {
+            'manager': update_order_status,
+            'delivery': update_order_status,
+            'customer': permission_denied,
+        },
+        'DELETE': {
+            'manager': delete_single_order,
+            'delivery': permission_denied,
+            'customer': permission_denied,
+        }
+    }
+    
+    pass_argument_into_function_dict_method = process_request(request=request, method_handlers=method_handlers)
+    
+    return pass_argument_into_function_dict_method(request=request, order_id=order_id)
+
+
 @api_view(['GET', 'POST'])
 def orders(request: HttpRequest):
-    manager = request.user.groups.filter(name='Manager').exists()
-    delivery = request.user.groups.filter(name='Delivery crew').exists()
-    admin = request.user.is_staff
-    
-    if request.method == 'GET':
+    return handle_orders(request=request)
 
-        if manager or admin:
-            # Manager can retrieve all Orders of all users
-            orders = Order.objects.all()
-            serializer = OrderSerializer(orders, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        
-        elif delivery:
-            orders = Order.objects.filter(delivery_crew=request.user)
-            serializer = OrderSerializer(orders, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        
-        else:  # Customer
-            # Customer can view created Orders
-            orders = Order.objects.filter(user=request.user)
-            
-            if not orders.exists():
-                return Response(
-                    {"detail": "Your order is empty. Please add push your cart something tasty and order it."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-                
-            serializer = OrderSerializer(orders, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-    if request.method == 'POST':
-        if manager or admin or delivery:
-            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        
-        else:
-            # Current Customer creates new order item, by gets user customer cart items and adds those items to order items table, then it deleted
-            cart_items = Cart.objects.filter(user=request.user)
-
-            if not cart_items.exists():
-                return Response(
-                    {"detail": "Your cart is empty. Please add your cart something tasty."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            # Calculate total price
-            total_price = sum(item.price for item in cart_items)
-            
-            # Order model Instance
-            order = Order.objects.create(
-                user=request.user,
-                date=datetime.date.today(),
-                total=total_price,
-                status=False
-            )
-            
-            # OrderItem model Instance
-            for cart_item in cart_items:
-                OrderItem.objects.create(
-                    order=order,
-                    menuitem=cart_item.menuitem,
-                    quantity=cart_item.quantity,
-                    unit_price=cart_item.unit_price,
-                    price=cart_item.price
-                )
-            
-            
-            cart_items.delete()
-            
-            return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
-    
-    
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-def order(request, order_id):
-    manager: bool = request.user.groups.filter(name='Manager').exists()
-    delivery: bool = request.user.groups.filter(name='Delivery crew').exists()
-    admin: bool = request.user.is_staff
-    
-    if request.method == 'GET':
-        if manager or admin or delivery:
-            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        
-        else:  # Customer
-            # Customer can check order items using created order id
-            order = get_object_or_404(Order, id=order_id)
-
-            if order.user != request.user:
-                return Response(
-                    {"error": "Permission denied. This order does not belong to the current user."}, 
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
-            order_items = OrderItem.objects.filter(order=order)
-            
-            if not order_items.exists():
-                return Response(
-                    {"detail": "Your Order is empty. Please add your cart something tasty and order it."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-                
-            serializer = OrderItemSerializer(order_items, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-    
-       
-    if request.method == 'PUT':
-        # Manager put specific Delivery by username to deliver this specific order by id of order
-        if manager or admin:
-            try:
-                # TODO: also make it using delivery_id
-                parsed_username = request.data['username']
-                if not parsed_username:
-                    raise KeyError("Delivery crew username is required.")
-                
-                user = get_object_or_404(User, username=parsed_username)
-                if not user.groups.filter(name='Delivery crew').exists():
-                    raise ValueError("The specified user is not a part of the 'Delivery crew' group.")
-            
-            except KeyError as e:
-                return Response(
-                    {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "Delivery crew username is required."}},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            except ValueError as e:
-                return Response(
-                    {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e)}},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
-            order = get_object_or_404(Order, id=order_id)
-            order.delivery_crew = user
-            order.save()
-            
-            serializer = OrderSerializer(order)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        
-        
-    if request.method == 'PATCH':
-        # Manager update status: bool = 0/1, 0(in procces deliver) to 1(delivered) 
-        if manager or admin or delivery:
-            try:
-                #parsed_status = request.data['status']
-                parsed_status = request.data.get('status', None)
-                #if not parsed_status is None:
-                if parsed_status is None:
-                    raise KeyError("To change it status field is required.")
-                #if not isinstance(parsed_status, bool):
-                #    raise TypeError("Status must be 0(false) or 1(true)")
-                
-                # Convert parsed_status to a boolean
-                if parsed_status.lower() == 'true':
-                    parsed_status = True
-                elif parsed_status.lower() == 'false':
-                    parsed_status = False
-                else:
-                    raise ValueError("Status must be 'true' or 'false'.")
-
-                if not isinstance(parsed_status, bool):
-                    raise TypeError("Status must be a boolean (True or False).")
-                
-            except KeyError as e:
-                return Response(
-                    {
-                        "status_code": status.HTTP_400_BAD_REQUEST, 
-                        "detail": {"error_message": {str(e).replace("'", "")}},
-                        "raised_message": "To change it status field is required."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            #except TypeError as e:
-            except (TypeError, ValueError) as e:
-                return Response(
-                    {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e)}},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            order = get_object_or_404(Order, id=order_id)
-            order.status = parsed_status
-            order.save()
-            
-            serializer = OrderSerializer(order)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-
-
-    if request.method == 'DELETE':
-        # Only Manager and Admin can delete order and orderitem using order_id
-        if manager or admin:
-            order = get_object_or_404(Order, id=order_id)
-            order_items = OrderItem.objects.filter(order=order)
-            order.delete()
-            order_items.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({"error": "Permission denied."})
+def order(request: HttpRequest, order_id: int):
+    return handle_order(request=request, order_id=order_id)
 
 
 
