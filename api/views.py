@@ -24,6 +24,7 @@ from django.contrib.auth.models import User
 from django.db.models import Model
 from rest_framework.serializers import ModelSerializer
 from django.http import HttpRequest
+from typing import Literal
 
 
 # Helper Function for Category and MenuItem views
@@ -39,7 +40,7 @@ def get_list_of_item(Model: Model, ModelSerializer: ModelSerializer) -> Response
     serializer = ModelSerializer(items, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-def create_new_item(request: HttpRequest, ModelSerializer: ModelSerializer) -> Response:
+def  create_new_item(request: HttpRequest, ModelSerializer: ModelSerializer) -> Response:
     """Create a new item. Method: POST"""
     serializer = ModelSerializer(data=request.data)
     try:
@@ -143,23 +144,23 @@ def handle_item(request: HttpRequest, item_id: int, Model: Model, ModelSerialize
 
 # Category views
 @api_view(['GET', 'POST'])
-def categories(request):
+def categories(request: HttpRequest):
     return handle_items(request=request, Model=Category, ModelSerializeer=CategorySerializer)
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-def single_category(request, item_id=None):
+def single_category(request: HttpRequest, item_id: int=None):
     return handle_item(request=request, item_id=item_id, Model=Category, ModelSerializeer=CategorySerializer)
 
 
 # MenuItem views
 @api_view(['GET', 'POST'])
-def menu_items(request):
+def menu_items(request: HttpRequest):
     return handle_items(request=request, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-def single_menu_item(request, item_id=None):
+def single_menu_item(request: HttpRequest, item_id: int=None):
     return handle_item(request=request, item_id=item_id, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
 
 
@@ -195,8 +196,10 @@ def get_users_in_group(group_name: str) -> Response:
     serializer = UserSerializer(users, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-def assign_user_to_group(user: User, group: Group, group_name: settings) -> Response:
+def assign_user_to_group(user: User, group_name: str) -> Response:
     """Assign the given user to the specified group. Method: POST"""
+    group = Group.objects.get(name=group_name)
+    
     if not user.groups.filter(name=group_name).exists():
         group.user_set.add(user)
         return Response(
@@ -208,8 +211,11 @@ def assign_user_to_group(user: User, group: Group, group_name: settings) -> Resp
         status=status.HTTP_400_BAD_REQUEST
     )
 
-def remove_user_from_group(user: User, group: Group, group_name: str) -> Response:
+def remove_user_from_group(user_id: int, group_name: str) -> Response:
     """Remove the specified user from the specified group using the user's ID. Method: DELETE"""
+    user = get_object_or_404(User, id=user_id)
+    group = Group.objects.get(name=group_name)
+    
     if user.groups.filter(name=group_name).exists():
         group.user_set.remove(user)
         return Response(
@@ -221,12 +227,14 @@ def remove_user_from_group(user: User, group: Group, group_name: str) -> Respons
         status=status.HTTP_400_BAD_REQUEST
     )
 
-def assign_or_remove_user_from_group(request: HttpRequest, group_name: str, action: str) -> Response:
+def assign_or_remove_user_from_group(
+    request: HttpRequest, group_name: str, 
+    action: Literal["assign", "remove"]) -> Response:
     """Assign or remove a user from the specified group based on the action parameter. Action: assign for POST, remove for DELETE"""
     try:
-        username = request.data['username']
-        group = Group.objects.get(name=group_name)
-        user = get_object_or_404(User, username=username)
+        username: str = request.data['username']
+        user: User = get_object_or_404(User, username=username)
+        user_id: int = user.id
     except KeyError as e:
         return Response(
             {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "This field is required."}}, 
@@ -234,9 +242,9 @@ def assign_or_remove_user_from_group(request: HttpRequest, group_name: str, acti
         )
 
     if action == 'assign':
-        return assign_user_to_group(user=user, group=group, group_name=group_name)
+        return assign_user_to_group(user=user, group_name=group_name)
     elif action == 'remove':
-        return remove_user_from_group(user=user, group=group, group_name=group_name)
+        return remove_user_from_group(user_id=user_id, group_name=group_name)
     else:
         return Response(
             {"status_code": status.HTTP_400_BAD_REQUEST, "error_message": "Invalid action."},
@@ -244,7 +252,7 @@ def assign_or_remove_user_from_group(request: HttpRequest, group_name: str, acti
         )
 
 
-def handle_users_group_management(request: HttpRequest, group_name: settings) -> Response:
+def handle_users_group_management(request: HttpRequest, group_name: str) -> Response:
     """Handle views for a user management actions for a group. Method: GET, POST, DELETE"""
     if request.method == 'GET':
         return get_users_in_group(group_name=group_name)
@@ -256,7 +264,7 @@ def handle_users_group_management(request: HttpRequest, group_name: settings) ->
         return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-def handle_user_group_management(request: HttpRequest, user_id: int, group_name: settings) -> Response:
+def handle_user_group_management(request: HttpRequest, user_id: int, group_name: str) -> Response:
     """Handle views for a user management actions for a single user in a group. Method: DELETE"""
     if request.method == 'DELETE':
         return remove_user_from_group(user_id=user_id, group_name=group_name)
@@ -267,22 +275,22 @@ def handle_user_group_management(request: HttpRequest, user_id: int, group_name:
 # TODO: refactor naming convension for functions, variable
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsGroupManager])
-def manage_manager_users(request):
+def manage_manager_users(request: HttpRequest):
     return handle_users_group_management(request=request, group_name=settings.MANAGER_GROUP_NAME)
 
 @api_view(['DELETE'])
 @permission_classes([IsGroupManager])
-def manage_manager_user(request, user_id):
+def manage_manager_user(request: HttpRequest, user_id: int):
     return handle_user_group_management(request=request, user_id=user_id, group_name=settings.MANAGER_GROUP_NAME)
 
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsGroupManager])
-def manage_delivery_crew_users(request):
+def manage_delivery_crew_users(request: HttpRequest):
     return handle_users_group_management(request=request, group_name=settings.DELIVERY_CREW_GROUP_NAME)
 
 @api_view(['DELETE'])
 @permission_classes([IsGroupManager])
-def manage_delivery_crew_user(request, user_id):
+def manage_delivery_crew_user(request: HttpRequest, user_id: int):
     return handle_user_group_management(request=request, user_id=user_id, group_name=settings.DELIVERY_CREW_GROUP_NAME)
 
 
@@ -316,16 +324,56 @@ def get_user_cart_items(request: HttpRequest) -> Response:
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def add_menu_item_to_cart(request: HttpRequest) -> Response:
-    """Add a menu item to the user's cart."""
+    """Add a menu item to the user's cart."""    
+    #try:
+    #    menu_item_id = request.data['menuitem']
+    #    quantity = request.data['quantity']
+
+    #    if not menu_item_id:
+    #        raise KeyError("menuitem", "Menu item ID is required.")
+
+    #    if not quantity:
+    #        raise KeyError("quantity", "Quantity is required.")
+    #    else:
+    #        try:
+    #            quantity = Decimal(quantity)
+    #        except InvalidOperation:
+    #            raise ValueError("quantity", "Enter a valid number for quantity.")
+
+    #except KeyError as e:
+    #    error_detail = {str(e): "This field is required."}
+    #    return Response(
+    #        {"status_code": status.HTTP_400_BAD_REQUEST, "detail": error_detail},
+    #        status=status.HTTP_400_BAD_REQUEST
+    #    )
+    #except ValueError as e:
+    #    field, message = e.args
+    #    error_detail = {field: message}
+    #    return Response(
+    #        {"status_code": status.HTTP_400_BAD_REQUEST, "detail": error_detail},
+    #        status=status.HTTP_400_BAD_REQUEST
+    #    )
+    
+    
     menu_item_id = request.data.get('menuitem')
     quantity = request.data.get('quantity')
 
-    # Convert quantity to a numeric type (e.g., int or Decimal)
-    try:
-        quantity = Decimal(quantity)
-    except InvalidOperation as e:
+    error_messages = {}
+
+    if menu_item_id is None:
+        error_messages['menuitem'] = 'This field is required.'
+
+    if quantity is None:
+        error_messages['quantity'] = 'This field is required.'
+    else:
+        try:
+            quantity = Decimal(quantity)
+        except InvalidOperation:
+            error_messages['quantity'] = 'Enter a valid number.'
+
+    if error_messages:
         return Response(
-            {"status_code": status.HTTP_400_BAD_REQUEST, "error_message": str(e)},
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": error_messages},
             status=status.HTTP_400_BAD_REQUEST
         )
     
@@ -389,7 +437,7 @@ def get_user_role(request: HttpRequest) -> str:
     else:  # Customer
         return 'customer'
 
-def permission_denied(request=None, order_id=None) -> Response:
+def permission_denied(request: HttpRequest=None, order_id: int=None) -> Response:
     return Response(
         {"detail": "Permission Denied."},
         status=status.HTTP_403_FORBIDDEN
@@ -407,12 +455,11 @@ def process_request(request: HttpRequest, method_handlers: dict):
     method_handler = request_handler.get(user_group_router, permission_denied())
     
     # Get the method that will be used to pass an argument to our functions in the dictionary
-    #return method_handler(request=request)
     return method_handler
 
 
 # if delete argument of get_all_orders() got an unexpected keyword argument 'request' (dict method) to solve it pass request as None (unnessary parameter)
-def get_all_orders(request=None) -> Response:
+def get_all_orders(request: HttpRequest=None) -> Response:
     """Manager can retrieve all Orders of all users"""
     orders = Order.objects.all()
     serializer = OrderSerializer(orders, many=True)
@@ -420,20 +467,27 @@ def get_all_orders(request=None) -> Response:
 
 def get_delivery_orders(request: HttpRequest) -> Response:
     orders = Order.objects.filter(delivery_crew=request.user)
+    
+    if not orders.exists():
+        return Response(
+            {"detail": "You currently have an Empty Delivery Request."},
+            status=status.HTTP_200_OK
+        )
+    
     serializer = OrderSerializer(orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def get_user_orders(request: HttpRequest) -> Response:
     """Customer can view created Orders"""
-    order = Order.objects.filter(user=request.user)
+    orders = Order.objects.filter(user=request.user)
     
-    if not order.exists():
+    if not orders.exists():
         return Response(
             {"detail": "Your order is empty. Please add push your cart something tasty and order it."},
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_200_OK
         )
         
-    serializer = OrderSerializer(order, many=True)
+    serializer = OrderSerializer(orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -444,7 +498,7 @@ def create_new_order(request: HttpRequest) -> Response:
     if not cart_items.exists():
         return Response(
             {"detail": "Your cart is empty. Please add your cart something tasty."},
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_200_OK
         )
     
     # Calculate total price
@@ -489,7 +543,7 @@ def get_user_order_items(request: HttpRequest, order_id: int) -> Response:
     if not order_items.exists():
         return Response(
             {"detail": "Your Order is empty. Please add your cart something tasty and order it."},
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_200_OK
         )
         
     serializer = OrderItemSerializer(order_items, many=True)
@@ -499,17 +553,17 @@ def get_user_order_items(request: HttpRequest, order_id: int) -> Response:
 def set_delivery_to_order(request: HttpRequest, order_id: int) -> Response:
     """Manager put specific Delivery by username to deliver this specific order by id of order"""
     try:
-        parsed_username = request.data['username']
-        if not parsed_username:
+        username = request.data['username']
+        if not username:
             raise KeyError("Delivery crew username is required.")
         
-        user = get_object_or_404(User, username=parsed_username)
+        user = get_object_or_404(User, username=username)
         if not user.groups.filter(name='Delivery crew').exists():
             raise ValueError("The specified user is not a part of the 'Delivery crew' group.")
     
     except KeyError as e:
         return Response(
-            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "Delivery crew username is required."}},
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "This Delivery crew field is required."}},
             status=status.HTTP_400_BAD_REQUEST
         )
     except ValueError as e:
@@ -527,37 +581,40 @@ def set_delivery_to_order(request: HttpRequest, order_id: int) -> Response:
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-def update_order_status(request: HttpRequest, order_id: int):
-    """Manager or Delivery update status: bool = 0/1, 0(in procces deliver) to 1(delivered)"""
+def update_order_status(request: HttpRequest, order_id: int) -> Response:
+    """Manager or Delivery updates order status 0 - in procces or 1 - delivered"""
+    order = get_object_or_404(Order, id=order_id)
+    
+    #manager = is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME)
+    #delivery = is_group_has_permission(request=request, group_name=settings.DELIVERY_CREW_GROUP_NAME)
+    
+    is_manager_or_admin = IsGroupManager.has_permission(request=request, view=None)
+    is_delivery_crew = IsGroupOnlyDeliveryCrew.has_permission(request=request, view=None)
     try:
-        parsed_username = request.data['username']
-        if not parsed_username:
-            raise KeyError("Delivery crew username is required.")
+        if is_manager_or_admin or is_delivery_crew:
+            status_data = request.data['status']
+            
+        if not status_data:
+            raise KeyError("Status field is required.")
         
-        user = get_object_or_404(User, username=parsed_username)
-        if not user.groups.filter(name='Delivery crew').exists():
-            raise ValueError("The specified user is not a part of the 'Delivery crew' group.")
-    
+        if status_data is not None and status_data in [str(0), str(1)]:
+            order.status = status_data
+            order.save()
+
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {'error': 'Invalid status value. It should be 0 (in process) or 1 (delivered).'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except KeyError as e:
         return Response(
-            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "username": "Delivery crew username is required."}},
+            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e).replace("'", ""), "status": "This field is required."}},
             status=status.HTTP_400_BAD_REQUEST
         )
-    except ValueError as e:
-        return Response(
-            {"status_code": status.HTTP_400_BAD_REQUEST, "detail": {"error_message": str(e)}},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-        
-    order = get_object_or_404(Order, id=order_id)
-    order.delivery_crew = user
-    order.save()
-    
-    serializer = OrderSerializer(order)
-    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-def delete_single_order(order_id: int, request=None) -> Response:
+def delete_single_order(order_id: int, request: HttpRequest=None) -> Response:
     """Only Manager and Admin can delete order and orderitem using order_id"""
     order = get_object_or_404(Order, id=order_id)
     order_items = OrderItem.objects.filter(order=order)
@@ -582,16 +639,9 @@ def handle_orders(request: HttpRequest) -> Response:
     
     
     # Dispatching Using a Dictionary for request.method and has_permissions group/role by executing function with passed arguments
-    pass_argument_into_function_dict_method = process_request(request=request, method_handlers=method_handlers)
+    dict_dispatcher_method = process_request(request=request, method_handlers=method_handlers)
     
-    return pass_argument_into_function_dict_method(request=request)
-    
-
-    #user_group_router = get_user_role(request=request)
-    
-    #method_handler = method_handlers[request.method].get(user_group_router, permission_denied())
-    
-    #return method_handler(request=request)
+    return dict_dispatcher_method(request=request)
 
 
 def handle_order(request: HttpRequest, order_id: int) -> Response:
@@ -618,9 +668,9 @@ def handle_order(request: HttpRequest, order_id: int) -> Response:
         }
     }
     
-    pass_argument_into_function_dict_method = process_request(request=request, method_handlers=method_handlers)
+    dict_dispatcher_method = process_request(request=request, method_handlers=method_handlers)
     
-    return pass_argument_into_function_dict_method(request=request, order_id=order_id)
+    return dict_dispatcher_method(request=request, order_id=order_id)
 
 
 @api_view(['GET', 'POST'])
