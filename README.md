@@ -1,89 +1,58 @@
-# LittleLemon Restaurant
+# Restaurant API
 
-This is project that provide website and system for Restaurant.
+This is project that provide rest api and system management for Restaurant.
 
-## Features 
+## API Features
 
-Apps:
-- Django Rest API app (api)
-- Django Template app (restaurant)
-
-### API features
-
-### Django Template app
-
-## TODO
-
-- want to improve and try tech like HTMX and Tailwind CSS.
-- try to integrate api (frontend logic) React
-- try to integrate api to mobile app using Flutter
-- try Poetry
-
-- connect MySQL/PostgreSQL
-- provide Documentation for API with Swagger
-- write Tests with PyTest
-
-Just for future:
-- Docker
-- Nginx, Web-server
-- Gunicorn
-- Celery, Redis, RabbitMQ
-- CI/CD, GitHub pipeline, deployment to VPS with domain name.
-- Docker Compose/Kubernates
-- Asyncio
-
-- Stripe payment system with GEO GPS location tracter with Delivery crew order
-
-### TODO Decomposition
-
-- 
-
-### Convension and Best Practices
-
-- PEP 8
-- Clean Code, Clean Architecture
-- Naming Convension
-- Type hinting
-- docstring
-- pythonic
+- Authentication
+- Searching, Filtering, Ordering/Sorting
+- Pagination and Throttling
+- Category
+- Menu Item
+- User group management
+- Cart management
+- Order management
 
 ## Installation and Runing
 
-- insatall `python`
-- django framework `pip insatall django'
-- venv/dependecies library `pip install pipenv`
+- clone this repo `https://github.com/dotpep/restaurant-api`
+- `cd restaurant-api`
 
-- `pipenv shell`
-- `pipenv sync`
+- insatall `python` > 3.8
+- install pipenv for virtual environment `pip insatall pipenv`
 
-- clone this repo
-- `cd LittleLemon` 
+- create virtual enviroment `pipenv shell`
+- install dependencies `pipenv install`
+
 - `python manage.py runserver`
 
-Admin SuperUser:
+You should now be able to access the API at `http://localhost:8000/`
+
+Admin panel `http://localhost:8000/admin/`
 username: admin
 password: admin
 
-## Table of Content
+- you can activate pipenv venv in powershell by `pipenv shell`, `&.virtualenvs\restaurant-api-your_specific_project_hash\Scripts\activate.sh`
+- Check python version `pip --version` or Use pyenv to install multiple python version `pip install pyenv`
+- Verify that all dependencies are installed correctly `pipenv graph`
+- models `python manage.py makemigrations` and `python manage.py migrate`
 
-- config 
-- api
+Use requiremetns.txt and standard venv instead pipenv
 
-### Documentation
+- `python venv env`
+- `env\Scripts\activate`
+- `pip install -r requiremets.txt`
 
-- `docs/` - documentation 
-- `docs/api/model` - is ER-D model design, shows relationship between declared models.
+## Documentation
 
-## Source
+### Demonstration
 
-- Meta Back-End Developer Professional Certificate
-- other Internet Resourse
+### ER-diagram
 
-### Original/Implementation procces Source
+- [\docs\ERD](docs\ERD\README.md)
 
-- api app: `https://github.com/dotpep/python/tree/master/Meta_Back-End_Developer_coursera/APIs_DRF/LittleLemon`
-- restaurant app: `https://github.com/dotpep/python/tree/master/Meta_Back-End_Developer_coursera/Django_web_framework/week5_module5_summary`
+![Database Entity Design ER-D](docs\ERD\ER-D_restaurantapi.png)
 
 ## LICENCE
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
