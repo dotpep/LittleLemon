@@ -16,10 +16,6 @@ from django.conf import settings
 from django.forms import ValidationError
 from decimal import Decimal, InvalidOperation
 
-# Filtering
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
-
 # Pagination
 from django.core.paginator import Paginator, EmptyPage
 
@@ -118,11 +114,12 @@ def filter_by_featured(items, featured):
 def search_by_title(items, search):
     return items.filter(title__icontains=search)
 
+
 def order_items(items, order_by):
     return items.order_by(*order_by)
 
 
-def filter_by_param(request, items, param_name, filter_func):
+def template_filter(request, items, param_name, filter_func):
     param_value = request.query_params.get(param_name)
     if param_value:
         items = filter_func(items, param_value)
@@ -130,19 +127,89 @@ def filter_by_param(request, items, param_name, filter_func):
 
 
 def handle_menuitem_filtering(request: HttpRequest, items):
-    items = filter_by_param(request=request, items=items, param_name='category', filter_func=filter_by_category)
-    items = filter_by_param(request=request, items=items, param_name='to_price', filter_func=filter_by_price)
-    items = filter_by_param(request=request, items=items, param_name='featured', filter_func=filter_by_featured)
+    # FIXME: Try to implement django-filter, Q objects or conditional expressions for my filterings, because my template_filter function seems complicated for perfomance calling it for checking all filterings
+    if request.query_params.get is None:
+        return items
     
-    items = filter_by_param(request=request, items=items, param_name='search', filter_func=search_by_title)
+    items = template_filter(request=request, items=items, param_name='category', filter_func=filter_by_category)
+    items = template_filter(request=request, items=items, param_name='to_price', filter_func=filter_by_price)
+    items = template_filter(request=request, items=items, param_name='featured', filter_func=filter_by_featured)
+    
+    items = template_filter(request=request, items=items, param_name='search', filter_func=search_by_title)
     
     return items
 
 
 def handle_category_filtering(request: HttpRequest, items):
-    items = filter_by_param(request=request, items=items, param_name='search', filter_func=search_by_title)
+    items = template_filter(request=request, items=items, param_name='search', filter_func=search_by_title)
     
     return items
+
+
+def filter_by_status(items, status):
+    status = bool(int(status))
+    return items.filter(status=status)
+
+def filter_by_user(items, user_id):
+    return items.filter(user=user_id)
+
+def filter_by_delivery(items, delivery_id):
+    return items.filter(delivery_crew=delivery_id)
+
+def filter_by_delivery_set_status(items, delivery_set_status):
+    delivery_set_status = not bool(int(delivery_set_status))
+    return items.filter(delivery_crew__isnull=delivery_set_status)
+
+def filter_by_date(items, date):
+    return items.filter(date=date)
+
+def filter_by_start_date(items, start_date):
+    return items.filter(date__gte=start_date)
+
+def filter_by_end_date(items, end_date):
+    return items.filter(date__lte=end_date)
+
+def filter_by_total(items, total):
+    return items.filter(total__lte=Decimal(total))
+
+
+def handle_order_filtering(request: HttpRequest, items):
+    if request.query_params.get is None:
+        return items
+    
+    items = template_filter(request=request, items=items, param_name='status', filter_func=filter_by_status)
+    items = template_filter(request=request, items=items, param_name='user_id', filter_func=filter_by_user)
+    items = template_filter(request=request, items=items, param_name='delivery_id', filter_func=filter_by_delivery)
+    items = template_filter(request=request, items=items, param_name='delivery_set_status', filter_func=filter_by_delivery_set_status)
+    items = template_filter(request=request, items=items, param_name='date', filter_func=filter_by_date)
+    items = template_filter(request=request, items=items, param_name='start_date', filter_func=filter_by_start_date)
+    items = template_filter(request=request, items=items, param_name='end_date', filter_func=filter_by_end_date)
+    items = template_filter(request=request, items=items, param_name='to_total', filter_func=filter_by_total)
+
+    return items
+
+
+def filter_by_unit_price(items, to_unit_price):
+    return items.filter(unit_price__lte=Decimal(to_unit_price))
+
+def filter_by_quantity(items, min_quantity):
+    return items.filter(quantity__gte=min_quantity)
+
+def search_menu_item_title(items, menu_item_titel):
+    return items.filter(menuitem__title__iexact=menu_item_titel)
+
+def handle_orderitem_filtering(request: HttpRequest, items):
+    if request.query_params.get is None:
+        return items
+    
+    items = template_filter(request=request, items=items, param_name='to_price', filter_func=filter_by_price)
+    items = template_filter(request=request, items=items, param_name='to_unit_price', filter_func=filter_by_unit_price)
+    items = template_filter(request=request, items=items, param_name='to_quantity', filter_func=filter_by_quantity)
+    
+    items = template_filter(request=request, items=items, param_name='search_menu_item', filter_func=search_menu_item_title)
+
+    return items
+
 
 
 def handle_items(request: HttpRequest, model_class: Model, serializer_class: ModelSerializer) -> Response:
@@ -151,13 +218,13 @@ def handle_items(request: HttpRequest, model_class: Model, serializer_class: Mod
         #items = model_class.objects.all()
         
         if model_class is MenuItem:
-            items = model_class.objects.select_related('category').all()
-            items = handle_menuitem_filtering(request=request, items=items)
+            items = model_class.objects.select_related('category')
+            filtered_item = handle_menuitem_filtering(request=request, items=items)
             #items = items.order_by('title', 'price')
         
         if model_class is Category:
             items = model_class.objects.all()
-            items = handle_category_filtering(request=request, items=items)
+            filtered_item = handle_category_filtering(request=request, items=items)
             #items = items.order_by('title', 'id')
         
         ## Ordering
@@ -176,7 +243,7 @@ def handle_items(request: HttpRequest, model_class: Model, serializer_class: Mod
         #except EmptyPage:
         #    items = []
         
-        return get_list_of_item(items=items, serializer_class=serializer_class)
+        return get_list_of_item(items=filtered_item, serializer_class=serializer_class)
     
     # Check Permissions for POST
     if not is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME):
@@ -538,37 +605,46 @@ def process_request(request: HttpRequest, method_handlers: dict):
 
 def get_all_orders(request: HttpRequest=None) -> Response:
     """Manager can retrieve all Orders of all users"""
-    orders = Order.objects.select_related('user').all()
+    order = Order.objects.select_related('user')
     
-    orders = handle_order_filtering(request=request, items=orders)
+    filtered_orders = handle_order_filtering(request=request, items=order)
     #orders = orders.order_by('date', 'unit_price')
     
-    serializer = OrderSerializer(orders, many=True)
+    serializer = OrderSerializer(filtered_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def get_delivery_orders(request: HttpRequest) -> Response:
-    orders = Order.objects.filter(delivery_crew=request.user)
+    order = Order.objects.select_related('user')
+    delivery_orders = order.filter(delivery_crew=request.user)
     
-    if not orders.exists():
+    if not delivery_orders.exists():
         return Response(
             {"detail": "You currently have an Empty Delivery Request."},
             status=status.HTTP_200_OK
         )
     
-    serializer = OrderSerializer(orders, many=True)
+    filtered_orders = handle_order_filtering(request=request, items=delivery_orders)
+    #orders = orders.order_by('date', 'unit_price')
+    
+    serializer = OrderSerializer(filtered_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def get_user_orders(request: HttpRequest) -> Response:
     """Customer can view created Orders"""
-    orders = Order.objects.filter(user=request.user)
+    #orders = Order.objects.filter(user=request.user)
+    order = Order.objects.select_related('user')
+    user_orders = order.filter(user=request.user)
     
-    if not orders.exists():
+    if not user_orders.exists():
         return Response(
             {"detail": "Your order is empty. Please add push your cart something tasty and order it."},
             status=status.HTTP_200_OK
         )
 
-    serializer = OrderSerializer(orders, many=True)
+    filtered_orders = handle_order_filtering(request=request, items=user_orders)
+    #orders = orders.order_by('date', 'unit_price')
+
+    serializer = OrderSerializer(filtered_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -619,15 +695,19 @@ def get_user_order_items(request: HttpRequest, order_id: int) -> Response:
             status=status.HTTP_403_FORBIDDEN
         )
 
-    order_items = OrderItem.objects.filter(order=order)
+    order_item = OrderItem.objects.select_related('menuitem')
+    orders_items = order_item.filter(order=order)
 
-    if not order_items.exists():
+    if not orders_items.exists():
         return Response(
             {"detail": "Your Order is empty. Please add your cart something tasty and order it."},
             status=status.HTTP_200_OK
         )
         
-    serializer = OrderItemSerializer(order_items, many=True)
+    filtered_orders = handle_orderitem_filtering(request=request, items=orders_items)
+    #orders = orders.order_by('date', 'unit_price')
+        
+    serializer = OrderItemSerializer(filtered_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
