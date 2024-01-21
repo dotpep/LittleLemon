@@ -13,6 +13,8 @@ This is project that provide rest api and system management for Restaurant.
 - Cart management
 - Order management
 
+Groups/Roles: Admin, Manager, Delivery crew, authenticated user is Customer
+
 ## Installation and Runing
 
 - clone this repo `https://github.com/dotpep/restaurant-api`
@@ -49,9 +51,9 @@ Use requiremetns.txt and standard venv instead pipenv
 
 ### ER-diagram
 
-- [\docs\ERD](docs\ERD\README.md)
+- [docs/ERD/README.md](docs/ERD/README.md)
 
-![Database Entity Design ER-D](docs\ERD\ER-D_restaurantapi.png)
+![Database Entity Design ER-D](docs/ERD/ER-D_restaurantapi.png)
 
 ## LICENCE
 

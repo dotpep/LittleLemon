@@ -5,8 +5,8 @@ from django.shortcuts import get_object_or_404
 import datetime
 
 
-from .models import Category, MenuItem, Cart, Order, OrderItem
-from .serializers import CategorySerializer, MenuItemSerializer, UserSerializer, CartSerializer, OrderSerializer, OrderItemSerializer
+from api.models import Category, MenuItem, Cart, Order, OrderItem
+from api.serializers import CategorySerializer, MenuItemSerializer, UserSerializer, CartSerializer, OrderSerializer, OrderItemSerializer
 from django.contrib.auth.models import User, Group
 
 from django.conf import settings
@@ -15,6 +15,13 @@ from django.conf import settings
 # Validation
 from django.forms import ValidationError
 from decimal import Decimal, InvalidOperation
+
+# Filtering
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+
+# Pagination
+from django.core.paginator import Paginator, EmptyPage
 
 # for Custom class Permission
 from rest_framework.permissions import BasePermission
@@ -27,6 +34,8 @@ from django.http import HttpRequest
 from typing import Literal
 
 
+# TODO: apply Clean architecture, separate each services, helper functions and etc.
+
 # Helper Function for Category and MenuItem views
 def is_group_has_permission(request: HttpRequest, group_name: str) -> bool:
     """Check if user is in the specified group or is a staff member."""
@@ -34,15 +43,14 @@ def is_group_has_permission(request: HttpRequest, group_name: str) -> bool:
     return any((user.groups.filter(name=group_name).exists(), user.is_staff))
 
 
-def get_list_of_item(Model: Model, ModelSerializer: ModelSerializer) -> Response:
+def get_list_of_item(items: Model, serializer_class: ModelSerializer) -> Response:
     """Get a list of items. Method: GET"""
-    items = Model.objects.all()
-    serializer = ModelSerializer(items, many=True)
+    serializer = serializer_class(items, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-def  create_new_item(request: HttpRequest, ModelSerializer: ModelSerializer) -> Response:
+def create_new_item(request: HttpRequest, serializer_class: ModelSerializer) -> Response:
     """Create a new item. Method: POST"""
-    serializer = ModelSerializer(data=request.data)
+    serializer = serializer_class(data=request.data)
     try:
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -53,15 +61,15 @@ def  create_new_item(request: HttpRequest, ModelSerializer: ModelSerializer) -> 
             status=status.HTTP_400_BAD_REQUEST
         )
 
-
-def retrieve_item(item: Model, ModelSerializer: ModelSerializer) -> Response:
+def retrieve_item(item: Model, serializer_class: ModelSerializer) -> Response:
     """Retrieve details for a single item. Method: GET"""
-    serializer = ModelSerializer(item)
+    # FIXME: name convention for Model and ModelSerializer in func params
+    serializer = serializer_class(item)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-def update_full_item(request: HttpRequest, item: Model, ModelSerializer: ModelSerializer) -> Response:
+def update_full_item(request: HttpRequest, item: Model, serializer_class: ModelSerializer) -> Response:
     """Update an existing item. Method: PUT"""
-    serializer = ModelSerializer(item, data=request.data)
+    serializer = serializer_class(item, data=request.data)
     try:
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -72,9 +80,9 @@ def update_full_item(request: HttpRequest, item: Model, ModelSerializer: ModelSe
             status=status.HTTP_400_BAD_REQUEST
         )
 
-def partial_update_item(request: HttpRequest, item: Model, ModelSerializer: ModelSerializer) -> Response:
+def partial_update_item(request: HttpRequest, item: Model, serializer_class: ModelSerializer) -> Response:
     """Partially update an existing item. Method: PATCH"""
-    serializer = ModelSerializer(item, data=request.data, partial=True)
+    serializer = serializer_class(item, data=request.data, partial=True)
     try:
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -93,11 +101,82 @@ def destroy_item(item: Model) -> Response:
         status=status.HTTP_204_NO_CONTENT
     )
 
+# Helper function for Pagination
 
-def handle_items(request: HttpRequest, Model: Model, ModelSerializeer: ModelSerializer) -> Response:
+# Helper function for Filtering, Searching, Ordering/Sorting
+
+def filter_by_category(items, category_slug):
+    return items.filter(category__slug__iexact=category_slug)
+
+def filter_by_price(items, to_price):
+    return items.filter(price__lte=Decimal(to_price))
+
+def filter_by_featured(items, featured):
+    featured = bool(int(featured))
+    return items.filter(featured=featured)
+
+def search_by_title(items, search):
+    return items.filter(title__icontains=search)
+
+def order_items(items, order_by):
+    return items.order_by(*order_by)
+
+
+def filter_by_param(request, items, param_name, filter_func):
+    param_value = request.query_params.get(param_name)
+    if param_value:
+        items = filter_func(items, param_value)
+    return items
+
+
+def handle_menuitem_filtering(request: HttpRequest, items):
+    items = filter_by_param(request=request, items=items, param_name='category', filter_func=filter_by_category)
+    items = filter_by_param(request=request, items=items, param_name='to_price', filter_func=filter_by_price)
+    items = filter_by_param(request=request, items=items, param_name='featured', filter_func=filter_by_featured)
+    
+    items = filter_by_param(request=request, items=items, param_name='search', filter_func=search_by_title)
+    
+    return items
+
+
+def handle_category_filtering(request: HttpRequest, items):
+    items = filter_by_param(request=request, items=items, param_name='search', filter_func=search_by_title)
+    
+    return items
+
+
+def handle_items(request: HttpRequest, model_class: Model, serializer_class: ModelSerializer) -> Response:
     """Handle views for a list of items and create new item. Method: GET, POST"""
     if request.method == 'GET':
-        return get_list_of_item(Model=Model, ModelSerializer=ModelSerializeer)
+        #items = model_class.objects.all()
+        
+        if model_class is MenuItem:
+            items = model_class.objects.select_related('category').all()
+            items = handle_menuitem_filtering(request=request, items=items)
+            #items = items.order_by('title', 'price')
+        
+        if model_class is Category:
+            items = model_class.objects.all()
+            items = handle_category_filtering(request=request, items=items)
+            #items = items.order_by('title', 'id')
+        
+        ## Ordering
+        #ordering = request.query_params.get('ordering')
+        #if ordering:
+        #    ordering_fields = ordering.split(",")  # for many fields or values passed into ?ordering query parameters
+        #    items = items.order_by(*ordering_fields)
+        
+        ## Pagination
+        #perpage = request.query_params.get('perpage', default=2)
+        #page = request.query_params.get('page', default=1)
+        
+        #paginator = Paginator(items, per_page=perpage)
+        #try:
+        #    items = paginator.page(number=page)
+        #except EmptyPage:
+        #    items = []
+        
+        return get_list_of_item(items=items, serializer_class=serializer_class)
     
     # Check Permissions for POST
     if not is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME):
@@ -107,23 +186,23 @@ def handle_items(request: HttpRequest, Model: Model, ModelSerializeer: ModelSeri
         )
     
     if request.method == 'POST':
-        return create_new_item(request=request, ModelSerializer=ModelSerializeer)
+        return create_new_item(request=request, serializer_class=serializer_class)
     else:
         return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-def handle_item(request: HttpRequest, item_id: int, Model: Model, ModelSerializeer: ModelSerializer) -> Response:
+def handle_item(request: HttpRequest, item_id: int, model_class: Model, serializer_class: ModelSerializer) -> Response:
     """Handle views for a single item and manipulate item. Method: GET, PUT, PATCH, DELETE"""
     try:
-        parsed_item = get_object_or_404(Model, pk=item_id)
-    except Model.DoesNotExist as e:
+        parsed_item = get_object_or_404(model_class, pk=item_id)
+    except model_class.DoesNotExist as e:
         return Response(
             {"status_code": status.HTTP_404_NOT_FOUND, "error_message": str(e)},
             status=status.HTTP_404_NOT_FOUND
         )
     
     if request.method == 'GET':
-        return retrieve_item(item=parsed_item, ModelSerializer=ModelSerializeer)
+        return retrieve_item(item=parsed_item, serializer_class=serializer_class)
     
     # Check Permissions for PUT, PATCH, DELETE
     if not is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME):
@@ -133,9 +212,9 @@ def handle_item(request: HttpRequest, item_id: int, Model: Model, ModelSerialize
             )
     
     if request.method == 'PUT':
-        return update_full_item(request=request, item=parsed_item, ModelSerializer=ModelSerializeer)
+        return update_full_item(request=request, item=parsed_item, serializer_class=serializer_class)
     elif request.method == 'PATCH':
-        return partial_update_item(request=request, item=parsed_item, ModelSerializer=ModelSerializeer)
+        return partial_update_item(request=request, item=parsed_item, serializer_class=serializer_class)
     elif request.method == 'DELETE':
         return destroy_item(item=parsed_item)
     else:
@@ -145,23 +224,23 @@ def handle_item(request: HttpRequest, item_id: int, Model: Model, ModelSerialize
 # Category views
 @api_view(['GET', 'POST'])
 def categories(request: HttpRequest):
-    return handle_items(request=request, Model=Category, ModelSerializeer=CategorySerializer)
+    return handle_items(request=request, model_class=Category, serializer_class=CategorySerializer)
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def single_category(request: HttpRequest, item_id: int=None):
-    return handle_item(request=request, item_id=item_id, Model=Category, ModelSerializeer=CategorySerializer)
+    return handle_item(request=request, item_id=item_id, model_class=Category, serializer_class=CategorySerializer)
 
 
 # MenuItem views
 @api_view(['GET', 'POST'])
 def menu_items(request: HttpRequest):
-    return handle_items(request=request, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
+    return handle_items(request=request, model_class=MenuItem, serializer_class=MenuItemSerializer)
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def single_menu_item(request: HttpRequest, item_id: int=None):
-    return handle_item(request=request, item_id=item_id, Model=MenuItem, ModelSerializeer=MenuItemSerializer)
+    return handle_item(request=request, item_id=item_id, model_class=MenuItem, serializer_class=MenuItemSerializer)
 
 
 # User group management
@@ -272,7 +351,6 @@ def handle_user_group_management(request: HttpRequest, user_id: int, group_name:
         return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-# TODO: refactor naming convension for functions, variable
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsGroupManager])
 def manage_manager_users(request: HttpRequest):
@@ -458,10 +536,13 @@ def process_request(request: HttpRequest, method_handlers: dict):
     return method_handler
 
 
-# if delete argument of get_all_orders() got an unexpected keyword argument 'request' (dict method) to solve it pass request as None (unnessary parameter)
 def get_all_orders(request: HttpRequest=None) -> Response:
     """Manager can retrieve all Orders of all users"""
-    orders = Order.objects.all()
+    orders = Order.objects.select_related('user').all()
+    
+    orders = handle_order_filtering(request=request, items=orders)
+    #orders = orders.order_by('date', 'unit_price')
+    
     serializer = OrderSerializer(orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -486,7 +567,7 @@ def get_user_orders(request: HttpRequest) -> Response:
             {"detail": "Your order is empty. Please add push your cart something tasty and order it."},
             status=status.HTTP_200_OK
         )
-        
+
     serializer = OrderSerializer(orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -637,7 +718,6 @@ def handle_orders(request: HttpRequest) -> Response:
         }
     }
     
-    
     # Dispatching Using a Dictionary for request.method and has_permissions group/role by executing function with passed arguments
     dict_dispatcher_method = process_request(request=request, method_handlers=method_handlers)
     
@@ -683,30 +763,114 @@ def order(request: HttpRequest, order_id: int):
     return handle_order(request=request, order_id=order_id)
 
 
-
 # Testing
-def get_group_names() -> list:
-    return list(Group.objects.values_list('name', flat=True))
+if __name__ == "__main__":
+    # to run `python manage.py shell -i ipython` and in ipython `%run api/request.py`
+    from decimal import Decimal
+    from django.http import HttpRequest
+    from rest_framework.response import Response
+    from api.models import MenuItem, Category, Cart
+    from api.serializers import MenuItemSerializer
+    from django.db.models import Model
 
-# Get the group names dynamically from the database
-GROUP_NAMES = get_group_names()
+    #
+    # MenuItem Filtering, Searching, Ordering and Pagination
+    #
+    class _TestingMenuItemProcessor:
+        def __init__(self, request: HttpRequest) -> None:
+            self.request = request
+            self.items = MenuItem.objects.select_related('category').all()
+            
+        def _searching(self) -> Model:
+            search = self.request.GET.get('search')
+            if search:
+                self.items = self.items.filter(title__icontains=search)
+            return self.items
 
-GROUP_NAME_MAPPING = {group.lower(): group for group in GROUP_NAMES}
+        def _filter_by_price(self) -> Model:
+            to_price = self.request.GET.get('to_price')
+            if to_price:
+                self.items = self.items.filter(price__lte=Decimal(to_price))
 
-def get_actual_group_name(logical_group_name: str) -> str:
-    return GROUP_NAME_MAPPING.get(logical_group_name.lower(), logical_group_name)
+        def _filter_by_category(self) -> Model:
+            category_slug = self.request.GET.get('category')
+            if category_slug:
+                self.items = self.items.filter(category__slug__iexact=category_slug)
+            return self.items
 
+        def _ordering(self) -> Model:
+            ordering = self.request.GET.get('ordering')
+            if ordering:
+                ordering_fields = ordering.split(",")
+                self.items = self.items.order_by(*ordering_fields)
+            return self.items
 
-GROUP_NAME_MAPPING = {
-    'manager': settings.MANAGER_GROUP_NAME,
-    'delivery_crew': settings.DELIVERY_CREW_GROUP_NAME,
-}
+        def custom_process_menu_items(self) -> Response:
+            if self.request.method == 'GET':
+                self._searching()
+                self._filter_by_price()
+                self._filter_by_category()
+                self._ordering()
 
+                serialized_item = MenuItemSerializer(items, many=True)
+                return Response(serialized_item.data)
+    
+    #
+    # MenuItem manipulation
+    #
+    items = MenuItem.objects.all()
+    
+    fields = ['title', 'price', 'featured', 'category']
+    
+    item_map: dict = {
+        'title': items.values_list('title', flat=True),
+        'price': items.values_list('price', flat=True),
+        'featured': items.values_list('featured', flat=True),
+        'category': items.values_list('category__title', flat=True),
+    }
+    
+    item_fields: list = [key for key in item_map.keys()]
+    
+    #print(item_map['title'])
+    
+    
+    while True:
+        item_id = input('menu item id or (q, quit): ')
+        if item_id.lower() in ('quit', 'q'):
+            break
+        
+        for field in item_fields:
+            try:
+                menu_item = item_map[field][int(item_id)]
+            except (IndexError, ValueError): continue
+            print(f"{field.title()}: {menu_item}")
 
-@api_view(['GET'])
-def get_group_name_mapping(request):
-    return Response({
-        "list": GROUP_NAMES, 
-        "get_delivery_crew": get_actual_group_name('delivery_crew'),
-        "get_manager": get_actual_group_name('manager')
-    })
+    
+    count = MenuItem.objects.count()
+    #print(count)
+    
+    serialized_item = MenuItemSerializer(items, many=True)
+    response = Response(serialized_item.data)
+    #print(response.data)
+    
+    #
+    # MenuItem in memory, stack and hash
+    #
+    hex(id(MenuItem))
+    hex(id(MenuItem.objects.all()))
+    hex(id(items))
+
+    #
+    # MenuItem Request and Response
+    #
+    query_params = {'search': 'Apple cake'}
+    
+    request = HttpRequest()
+    request.method = 'GET'
+    request.GET = query_params
+
+    menu_processor = _TestingMenuItemProcessor(request=request)
+    response = menu_processor.custom_process_menu_items()
+
+    #response = _custom_menu_items(request)
+    print(response.data)

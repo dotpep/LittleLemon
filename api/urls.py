@@ -19,8 +19,4 @@ urlpatterns = [
     # Order management endpoints
     path('orders/', views.orders),
     path('orders/<int:order_id>', views.order),
-    
-    
-    # Testing
-    path('groups/names/', views.get_group_name_mapping),
 ]
