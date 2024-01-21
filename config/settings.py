@@ -38,10 +38,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-    'api.apps.ApiConfig',
     'rest_framework',
     'rest_framework.authtoken',
     'djoser',
+    
+    'api.apps.ApiConfig',
 ]
 
 MIDDLEWARE = [
@@ -127,11 +128,11 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# TODO: API Throttling
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication'
@@ -143,6 +144,7 @@ DJOSER = {
 }
 
 
+# TODO: implement constant for group/role and use it
 # Declared Group/Role Permissions
 AUTH_USER_BY_DEFAULT_IS = 'Customer'
 MANAGER_GROUP_NAME = 'Manager'

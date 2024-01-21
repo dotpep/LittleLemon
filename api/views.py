@@ -16,9 +16,6 @@ from django.conf import settings
 from django.forms import ValidationError
 from decimal import Decimal, InvalidOperation
 
-# Ordering/Sorting
-from rest_framework import filters
-
 # Pagination
 from django.core.paginator import Paginator, EmptyPage
 
@@ -100,9 +97,7 @@ def destroy_item(item: Model) -> Response:
         status=status.HTTP_204_NO_CONTENT
     )
 
-# Helper function for Pagination
-
-# Helper function for Filtering, Searching, Ordering/Sorting
+# Helper function for Filtering and Searching
 
 def filter_by_category(items, category_slug):
     return items.filter(category__slug__iexact=category_slug)
@@ -201,6 +196,8 @@ def filter_by_quantity(items, min_quantity):
 def search_menu_item_title(items, menu_item_titel):
     return items.filter(menuitem__title__iexact=menu_item_titel)
 
+
+# Helper function for Ordering/Sorting
 def handle_orderitem_filtering(request: HttpRequest, items):
     if request.query_params.get is None:
         return items
@@ -223,6 +220,21 @@ def multiple_params_ordering(request: HttpRequest, items):
     return items
 
 
+# Helper function for Pagination
+# TODO: handle exception of TypeError for Pagination and make max of perpage is 6
+def apply_query_params_pagination(request: HttpRequest, items):
+    perpage = request.query_params.get('perpage', default=2)
+    page = request.query_params.get('page', default=1)
+    
+    paginator = Paginator(items, per_page=perpage)
+    try:
+        items = paginator.page(number=page)
+    except EmptyPage:
+        items = []
+        
+    return items
+
+
 def handle_items(request: HttpRequest, model_class: Model, serializer_class: ModelSerializer) -> Response:
     """Handle views for a list of items and create new item. Method: GET, POST"""
     if request.method == 'GET':
@@ -238,17 +250,9 @@ def handle_items(request: HttpRequest, model_class: Model, serializer_class: Mod
             ordered_item = multiple_params_ordering(request=request, items=filtered_item)
             #items = items.order_by('id', 'title')
         
-        ## Pagination
-        #perpage = request.query_params.get('perpage', default=2)
-        #page = request.query_params.get('page', default=1)
+        paginated_items = apply_query_params_pagination(request=request, items=ordered_item)
         
-        #paginator = Paginator(items, per_page=perpage)
-        #try:
-        #    items = paginator.page(number=page)
-        #except EmptyPage:
-        #    items = []
-        
-        return get_list_of_item(items=ordered_item, serializer_class=serializer_class)
+        return get_list_of_item(items=paginated_items, serializer_class=serializer_class)
     
     # Check Permissions for POST
     if not is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME):
@@ -469,8 +473,10 @@ def get_user_cart_items(request: HttpRequest) -> Response:
             {"detail": "Your cart is empty. Please add something tasty."},
             status=status.HTTP_404_NOT_FOUND
         )
+        
+    paginated_orders = apply_query_params_pagination(request=request, items=cart_items)
     
-    serializer = CartSerializer(cart_items, many=True)
+    serializer = CartSerializer(paginated_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def add_menu_item_to_cart(request: HttpRequest) -> Response:
@@ -616,24 +622,9 @@ def get_all_orders(request: HttpRequest=None) -> Response:
     sorted_orders = multiple_params_ordering(request=request, items=filtered_orders)
     #sorted_orders = filtered_orders.order_by('date', 'total', 'status')
     
-    ## Apply filters according to the query parameters
-    #filtered_orders = OrderFilter(request.GET, queryset=order).qs
+    paginated_orders = apply_query_params_pagination(request=request, items=sorted_orders)
     
-    ## Apply sorting according to the ordering parameter
-    #filter_backends = (filters.OrderingFilter,)
-    #ordering_fields = ('date', 'total', 'status')
-    #ordering = 'date'
-    #sorted_orders = filter_backends.filter_queryset(request, filtered_orders, None)
-    
-    #items = items.order_by(request.query_params.get('ordering'))
-        
-    ## Ordering
-    #ordering = request.query_params.get('ordering')
-    #if ordering:
-    #    ordering_fields = ordering.split(",")
-    #    filtered_orders = filtered_orders.order_by(*ordering_fields)
-    
-    serializer = OrderSerializer(sorted_orders, many=True)
+    serializer = OrderSerializer(paginated_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def get_delivery_orders(request: HttpRequest) -> Response:
@@ -650,7 +641,9 @@ def get_delivery_orders(request: HttpRequest) -> Response:
     sorted_orders = multiple_params_ordering(request=request, items=filtered_orders)
     #orders = orders.order_by('date', 'total', 'status')
     
-    serializer = OrderSerializer(sorted_orders, many=True)
+    paginated_orders = apply_query_params_pagination(request=request, items=sorted_orders)
+    
+    serializer = OrderSerializer(paginated_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def get_user_orders(request: HttpRequest) -> Response:
@@ -667,8 +660,10 @@ def get_user_orders(request: HttpRequest) -> Response:
     filtered_orders = handle_order_filtering(request=request, items=user_orders)
     sorted_orders = multiple_params_ordering(request=request, items=filtered_orders)
     #orders = orders.order_by('date', 'total', 'status')
+    
+    paginated_orders = apply_query_params_pagination(request=request, items=sorted_orders)
 
-    serializer = OrderSerializer(sorted_orders, many=True)
+    serializer = OrderSerializer(paginated_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -732,9 +727,11 @@ def get_user_order_items(request: HttpRequest, order_id: int) -> Response:
         
     #filtered_orders = handle_orderitem_filtering(request=request, items=order_item)
     #orders = orders.order_by('menuitem', 'price', 'unit_price')
-        
-    serializer = OrderItemSerializer(order_items, many=True)
+    
+    paginated_orders = apply_query_params_pagination(request=request, items=order_items)
+    
     #serializer = OrderItemSerializer(filtered_orders, many=True)
+    serializer = OrderItemSerializer(paginated_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
