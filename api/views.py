@@ -16,6 +16,9 @@ from django.conf import settings
 from django.forms import ValidationError
 from decimal import Decimal, InvalidOperation
 
+# Ordering/Sorting
+from rest_framework import filters
+
 # Pagination
 from django.core.paginator import Paginator, EmptyPage
 
@@ -211,27 +214,29 @@ def handle_orderitem_filtering(request: HttpRequest, items):
     return items
 
 
+# TODO: catch exceptions for ordering and filtering query params
+def multiple_params_ordering(request: HttpRequest, items):
+    ordering = request.query_params.get('ordering')
+    if ordering:
+        ordering_fields = ordering.split(",")
+        items = items.order_by(*ordering_fields)
+    return items
+
 
 def handle_items(request: HttpRequest, model_class: Model, serializer_class: ModelSerializer) -> Response:
     """Handle views for a list of items and create new item. Method: GET, POST"""
     if request.method == 'GET':
-        #items = model_class.objects.all()
-        
         if model_class is MenuItem:
             items = model_class.objects.select_related('category')
             filtered_item = handle_menuitem_filtering(request=request, items=items)
+            ordered_item = multiple_params_ordering(request=request, items=filtered_item)
             #items = items.order_by('title', 'price')
         
         if model_class is Category:
             items = model_class.objects.all()
             filtered_item = handle_category_filtering(request=request, items=items)
-            #items = items.order_by('title', 'id')
-        
-        ## Ordering
-        #ordering = request.query_params.get('ordering')
-        #if ordering:
-        #    ordering_fields = ordering.split(",")  # for many fields or values passed into ?ordering query parameters
-        #    items = items.order_by(*ordering_fields)
+            ordered_item = multiple_params_ordering(request=request, items=filtered_item)
+            #items = items.order_by('id', 'title')
         
         ## Pagination
         #perpage = request.query_params.get('perpage', default=2)
@@ -243,7 +248,7 @@ def handle_items(request: HttpRequest, model_class: Model, serializer_class: Mod
         #except EmptyPage:
         #    items = []
         
-        return get_list_of_item(items=filtered_item, serializer_class=serializer_class)
+        return get_list_of_item(items=ordered_item, serializer_class=serializer_class)
     
     # Check Permissions for POST
     if not is_group_has_permission(request=request, group_name=settings.MANAGER_GROUP_NAME):
@@ -608,9 +613,27 @@ def get_all_orders(request: HttpRequest=None) -> Response:
     order = Order.objects.select_related('user')
     
     filtered_orders = handle_order_filtering(request=request, items=order)
-    #orders = orders.order_by('date', 'unit_price')
+    sorted_orders = multiple_params_ordering(request=request, items=filtered_orders)
+    #sorted_orders = filtered_orders.order_by('date', 'total', 'status')
     
-    serializer = OrderSerializer(filtered_orders, many=True)
+    ## Apply filters according to the query parameters
+    #filtered_orders = OrderFilter(request.GET, queryset=order).qs
+    
+    ## Apply sorting according to the ordering parameter
+    #filter_backends = (filters.OrderingFilter,)
+    #ordering_fields = ('date', 'total', 'status')
+    #ordering = 'date'
+    #sorted_orders = filter_backends.filter_queryset(request, filtered_orders, None)
+    
+    #items = items.order_by(request.query_params.get('ordering'))
+        
+    ## Ordering
+    #ordering = request.query_params.get('ordering')
+    #if ordering:
+    #    ordering_fields = ordering.split(",")
+    #    filtered_orders = filtered_orders.order_by(*ordering_fields)
+    
+    serializer = OrderSerializer(sorted_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def get_delivery_orders(request: HttpRequest) -> Response:
@@ -624,14 +647,14 @@ def get_delivery_orders(request: HttpRequest) -> Response:
         )
     
     filtered_orders = handle_order_filtering(request=request, items=delivery_orders)
-    #orders = orders.order_by('date', 'unit_price')
+    sorted_orders = multiple_params_ordering(request=request, items=filtered_orders)
+    #orders = orders.order_by('date', 'total', 'status')
     
-    serializer = OrderSerializer(filtered_orders, many=True)
+    serializer = OrderSerializer(sorted_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 def get_user_orders(request: HttpRequest) -> Response:
     """Customer can view created Orders"""
-    #orders = Order.objects.filter(user=request.user)
     order = Order.objects.select_related('user')
     user_orders = order.filter(user=request.user)
     
@@ -642,9 +665,10 @@ def get_user_orders(request: HttpRequest) -> Response:
         )
 
     filtered_orders = handle_order_filtering(request=request, items=user_orders)
-    #orders = orders.order_by('date', 'unit_price')
+    sorted_orders = multiple_params_ordering(request=request, items=filtered_orders)
+    #orders = orders.order_by('date', 'total', 'status')
 
-    serializer = OrderSerializer(filtered_orders, many=True)
+    serializer = OrderSerializer(sorted_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -695,19 +719,22 @@ def get_user_order_items(request: HttpRequest, order_id: int) -> Response:
             status=status.HTTP_403_FORBIDDEN
         )
 
+    # FIXME: filtered_orders doesnt works because order_items blocked this 2 filtering (and is returns separated object that not in one case i think)
     order_item = OrderItem.objects.select_related('menuitem')
-    orders_items = order_item.filter(order=order)
+    #filtered_orders = handle_orderitem_filtering(request=request, items=order_item)
+    order_items = order_item.filter(order=order)
 
-    if not orders_items.exists():
+    if not order_items.exists():
         return Response(
             {"detail": "Your Order is empty. Please add your cart something tasty and order it."},
             status=status.HTTP_200_OK
         )
         
-    filtered_orders = handle_orderitem_filtering(request=request, items=orders_items)
-    #orders = orders.order_by('date', 'unit_price')
+    #filtered_orders = handle_orderitem_filtering(request=request, items=order_item)
+    #orders = orders.order_by('menuitem', 'price', 'unit_price')
         
-    serializer = OrderItemSerializer(filtered_orders, many=True)
+    serializer = OrderItemSerializer(order_items, many=True)
+    #serializer = OrderItemSerializer(filtered_orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
