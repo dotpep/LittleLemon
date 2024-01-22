@@ -19,4 +19,7 @@ urlpatterns = [
     # Order management endpoints
     path('orders/', views.orders),
     path('orders/<int:order_id>', views.order),
+    
+    # Testing
+    path('throttle/', views.throttle_test),
 ]

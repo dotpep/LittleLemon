@@ -19,6 +19,11 @@ from decimal import Decimal, InvalidOperation
 # Pagination
 from django.core.paginator import Paginator, EmptyPage
 
+# Throttling
+from rest_framework.decorators import throttle_classes
+from rest_framework.throttling import UserRateThrottle
+
+
 # for Custom class Permission
 from rest_framework.permissions import BasePermission
 
@@ -28,6 +33,14 @@ from django.db.models import Model
 from rest_framework.serializers import ModelSerializer
 from django.http import HttpRequest
 from typing import Literal
+
+
+# Throttling
+class ManagerGroupThrottle(UserRateThrottle):
+    scope = 'manager'
+
+class DeliveryGroupThrottle(UserRateThrottle):
+    scope = 'delivery'
 
 
 # TODO: apply Clean architecture, separate each services, helper functions and etc.
@@ -429,21 +442,25 @@ def handle_user_group_management(request: HttpRequest, user_id: int, group_name:
 
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsGroupManager])
+@throttle_classes([ManagerGroupThrottle])
 def manage_manager_users(request: HttpRequest):
     return handle_users_group_management(request=request, group_name=settings.MANAGER_GROUP_NAME)
 
 @api_view(['DELETE'])
 @permission_classes([IsGroupManager])
+@throttle_classes([ManagerGroupThrottle])
 def manage_manager_user(request: HttpRequest, user_id: int):
     return handle_user_group_management(request=request, user_id=user_id, group_name=settings.MANAGER_GROUP_NAME)
 
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsGroupManager])
+@throttle_classes([ManagerGroupThrottle])
 def manage_delivery_crew_users(request: HttpRequest):
     return handle_users_group_management(request=request, group_name=settings.DELIVERY_CREW_GROUP_NAME)
 
 @api_view(['DELETE'])
 @permission_classes([IsGroupManager])
+@throttle_classes([ManagerGroupThrottle])
 def manage_delivery_crew_user(request: HttpRequest, user_id: int):
     return handle_user_group_management(request=request, user_id=user_id, group_name=settings.DELIVERY_CREW_GROUP_NAME)
 
@@ -868,6 +885,37 @@ def order(request: HttpRequest, order_id: int):
 
 
 # Testing
+def throttle_based_on_user_group(view_func):
+    """Decorator"""
+    def _wrapped_view(request, *args, **kwargs):
+        user = request.user
+
+        # Throttle based on user group
+        if user.groups.filter(name='Manager').exists() or user.is_staff:
+            return throttle_classes([ManagerGroupThrottle])(view_func)(request, *args, **kwargs)
+        elif user.groups.filter(name='Delivery crew').exists():
+            return throttle_classes([DeliveryGroupThrottle])(view_func)(request, *args, **kwargs)
+        else:
+            return throttle_classes([UserRateThrottle])(view_func)(request, *args, **kwargs)
+
+    return _wrapped_view
+
+# TODO: Implement throttling rate by user groups/roles
+@api_view(['GET'])
+@throttle_based_on_user_group
+def throttle_test(request):
+    user = request.user
+    manager = user.groups.filter(name='Manager').exists()
+    delivery = user.groups.filter(name='Delivery crew').exists()
+    
+    if manager:
+        return Response({"message": "Hello, throttled Manager!"})
+    elif delivery:
+        return Response({"message": "Hello, throttled Delivery!"})
+    else:
+        return Response({"message": "Hello, throttled Customer!"})
+    #return Response({"message": "Hello, throttled user!"})
+
 if __name__ == "__main__":
     # to run `python manage.py shell -i ipython` and in ipython `%run api/request.py`
     from decimal import Decimal
