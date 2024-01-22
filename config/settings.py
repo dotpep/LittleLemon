@@ -141,9 +141,9 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '1/minute',
-        'delivery': '2/minute',
-        'manager': '3/minute',
+        'user': '20/minute',
+        'delivery': '30/minute',
+        'manager': '50/minute',
     },
 }
 

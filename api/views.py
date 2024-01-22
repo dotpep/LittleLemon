@@ -236,7 +236,7 @@ def multiple_params_ordering(request: HttpRequest, items):
 # Helper function for Pagination
 # TODO: handle exception of TypeError for Pagination and make max of perpage is 6
 def apply_query_params_pagination(request: HttpRequest, items):
-    perpage = request.query_params.get('perpage', default=2)
+    perpage = request.query_params.get('perpage', default=3)
     page = request.query_params.get('page', default=1)
     
     paginator = Paginator(items, per_page=perpage)
@@ -490,7 +490,8 @@ def get_user_cart_items(request: HttpRequest) -> Response:
             {"detail": "Your cart is empty. Please add something tasty."},
             status=status.HTTP_404_NOT_FOUND
         )
-        
+    # TODO: Implement Filtering, Searching and Ordering/Sorting
+    
     paginated_orders = apply_query_params_pagination(request=request, items=cart_items)
     
     serializer = CartSerializer(paginated_orders, many=True)
@@ -587,6 +588,7 @@ def handle_cart_request(request: HttpRequest) -> Response:
     elif request.method == 'POST':
         return add_menu_item_to_cart(request=request)
     elif request.method == 'DELETE':
+        # TODO: Implement delete cart items by id or one of item from cart
         return clean_user_cart_item(request=request)
     else:
         return Response({"detail": "Invalid method for this endpoint."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)

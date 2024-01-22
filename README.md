@@ -17,7 +17,7 @@ Groups/Roles: Admin, Manager, Delivery crew, authenticated user is Customer
 
 ## Installation and Runing
 
-- clone this repo `https://github.com/dotpep/restaurant-api`
+- clone this repo `git clone https://github.com/dotpep/restaurant-api`
 - `cd restaurant-api`
 
 - insatall `python` > 3.8
@@ -31,7 +31,9 @@ Groups/Roles: Admin, Manager, Delivery crew, authenticated user is Customer
 You should now be able to access the API at `http://localhost:8000/`
 
 Admin panel `http://localhost:8000/admin/`
+
 username: admin
+
 password: admin
 
 - you can activate pipenv venv in powershell by `pipenv shell`, `&.virtualenvs\restaurant-api-your_specific_project_hash\Scripts\activate.sh`
@@ -49,9 +51,15 @@ Use requiremetns.txt and standard venv instead pipenv
 
 ### Demonstration
 
+### API
+
+you can find Insomnia API endpoints testing collection in path `docs/API`:
+- [Testing Endpoints Collection in Insomnia (click me to see it)](docs/API)
+
 ### ER-diagram
 
-- [docs/ERD/README.md](docs/ERD/README.md)
+path to ER-D `docs/ERD/README.md`
+- [Entity Relation Diagram of Django Models (click me to see it)](docs/ERD/README.md)
 
 ![Database Entity Design ER-D](docs/ERD/ER-D_restaurantapi.png)
 

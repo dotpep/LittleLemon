@@ -1,0 +1,753 @@
+_type: export
+__export_format: 4
+__export_date: 2024-01-22T21:27:13.599Z
+__export_source: insomnia.desktop.app:v8.6.0
+resources:
+  - _id: req_d921ad8395cd4612bb9367a57db367aa
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705957325656
+    created: 1705154196051
+    url: http://127.0.0.1:8000/api/v1/orders/
+    name: orders delivery
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_8fab43b803994d76b7f5574b46b53bfa
+          name: username
+          value: robert
+          description: ""
+          disabled: true
+        - id: pair_b4431eaacce34fdd8f308edcf57a5f41
+          name: delivery_crew_id
+          value: "3"
+          description: ""
+          disabled: true
+        - id: pair_28ef8aa6e84340fdab4e25c3f2acd027
+          name: status
+          value: "1"
+          description: ""
+          disabled: true
+    parameters:
+      - id: pair_10d446fdc1924ce09104a3b8f225c0a2
+        name: perpage
+        value: "4"
+        description: ""
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      token: dfc3d3ada7d91bf88c3e6115f7f8129f3e6f825c
+      prefix: Token
+    metaSortKey: -1705154196051
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    parentId: null
+    modified: 1704823682519
+    created: 1704823682519
+    name: LittleLemonAPI
+    description: ""
+    scope: collection
+    _type: workspace
+  - _id: req_840f93d78893461890c19dec162850c8
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705957155663
+    created: 1705603201235
+    url: http://127.0.0.1:8000/api/v1/orders/
+    name: orders manager
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_8fab43b803994d76b7f5574b46b53bfa
+          name: username
+          value: robert
+          description: ""
+          disabled: true
+        - id: pair_b4431eaacce34fdd8f308edcf57a5f41
+          name: delivery_crew_id
+          value: "3"
+          description: ""
+          disabled: true
+        - id: pair_28ef8aa6e84340fdab4e25c3f2acd027
+          name: status
+          value: "1"
+          description: ""
+          disabled: true
+        - id: pair_516383cf6f8443e79eba239c1241d6bc
+          name: username
+          value: jimmydoe
+          description: ""
+          disabled: true
+    parameters:
+      - id: pair_3880c94e7a38461f995c2ccbdba1b2f1
+        name: status
+        value: "0"
+        description: ""
+        disabled: true
+      - id: pair_2e950d759350411b8ab945c5187a3b68
+        name: date
+        value: 2024-01-21
+        description: ""
+        disabled: true
+      - id: pair_013196a999d3436a8f77a70d3830bcf6
+        name: user_id
+        value: "4"
+        description: ""
+        disabled: true
+      - id: pair_f94f3c53c4df446398d870538a6cb5ec
+        name: delivery_id
+        value: "7"
+        description: ""
+        disabled: true
+      - id: pair_663a2e8d8679472eab8e2ca0c15daf1c
+        name: delivery_set_status
+        value: "1"
+        description: ""
+        disabled: true
+      - id: pair_68f9d79717a74895bf7352c778be2ae4
+        name: start_date
+        value: 2024-01-21
+        description: ""
+        disabled: true
+      - id: pair_ce3292e3ac4548a29ac5b2c23f4b37fe
+        name: end_date
+        value: 2024-01-21
+        description: ""
+        disabled: true
+      - id: pair_7cc606b68b0d4ae7a2bee88943e4242c
+        name: to_total
+        value: "20"
+        description: ""
+        disabled: true
+      - id: pair_5f06c5d139524121aab8af6c6243161d
+        name: to_price
+        value: "2"
+        description: ""
+        disabled: true
+      - id: pair_a47e4272e2c147758d3673d23362e33a
+        name: to_unit_price
+        value: ""
+        description: ""
+        disabled: true
+      - id: pair_c0444d64430f4b7fb232ea0cac22d1ab
+        name: to_quantity
+        value: ""
+        description: ""
+        disabled: true
+      - id: pair_b86d4b8f34254b8386867297e5ec8e88
+        name: search_menu_item
+        value: "1"
+        description: ""
+        disabled: true
+      - id: pair_c31d1e06d3914b38a95414e06d71b7e8
+        name: ordering
+        value: -id
+        description: ""
+        disabled: false
+      - id: pair_99bf596de66d44f1ba992e8eed1c4aff
+        name: perpage
+        value: "4"
+        description: ""
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      token: f240148d582d999da95a2e0a394ffcb454fbcc4c
+      prefix: Token
+    metaSortKey: -1705075373997.5
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_be0ec43e1f9e4cdb873a8df2ba4b4ecc
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705957727432
+    created: 1705603242924
+    url: http://127.0.0.1:8000/api/v1/orders/21
+    name: orders customer
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_8fab43b803994d76b7f5574b46b53bfa
+          name: username
+          value: robert
+          description: ""
+          disabled: true
+        - id: pair_b4431eaacce34fdd8f308edcf57a5f41
+          name: delivery_crew_id
+          value: "3"
+          description: ""
+          disabled: true
+        - id: pair_28ef8aa6e84340fdab4e25c3f2acd027
+          name: status
+          value: "true"
+          description: ""
+          disabled: true
+    parameters:
+      - id: pair_f75acdaef8f64b2690b86fe5c9315681
+        name: to_price
+        value: "2"
+        description: ""
+        disabled: true
+      - id: pair_e565893aa0e34e689dee1aa2139dc084
+        name: search_menu_item
+        value: Apple
+        description: ""
+        disabled: true
+      - id: pair_f2bd566e0de249d689f47bb5f962721e
+        name: perpage
+        value: "20"
+        description: ""
+        disabled: true
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      token: 4635fb7fb250a557785008925794bb3dc08487a4
+      prefix: Token
+    metaSortKey: -1705035962970.75
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_b85be933e78347b78d57c0d89a98782f
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705957575231
+    created: 1704981515245
+    url: http://127.0.0.1:8000/api/v1/cart/menu-items
+    name: cart
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_692f6c1f5b2e4606804bd09a37af329d
+          name: menuitem
+          value: "9"
+          description: ""
+          disabled: false
+        - id: pair_af2ed04c17684275bc91ff8971165d40
+          name: quantity
+          value: "1"
+          description: ""
+          disabled: false
+    parameters:
+      - id: pair_f82d28420df64bbaa2c613a773fd6461
+        name: perpage
+        value: "4"
+        description: ""
+      - id: pair_bff47adc6f3f4ee39da8b9233a9ebfe3
+        name: page
+        value: "1"
+        description: ""
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      prefix: Token
+      token: 4635fb7fb250a557785008925794bb3dc08487a4
+    metaSortKey: -1704981515245
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_c8ef14c148784f539dd24bbd646a42c0
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705957013833
+    created: 1704927775509
+    url: http://127.0.0.1:8000/api/v1/groups/delivery-crew/users/
+    name: delivery crew users
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_4f6b2d0342364c808fdf5cde86b79cdc
+          name: username
+          value: robert
+          description: ""
+          disabled: false
+    parameters: []
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      token: f240148d582d999da95a2e0a394ffcb454fbcc4c
+      prefix: Token
+      disabled: false
+    metaSortKey: -1704905559912
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_3f80a170ba6941c6bbb88412f33cfd0a
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705956546008
+    created: 1704904419466
+    url: http://127.0.0.1:8000/api/v1/groups/manager/users/
+    name: manager users
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_fa528af2a4674dfda10bc2013656a649
+          name: username
+          value: matthew
+          description: ""
+          disabled: false
+    parameters: []
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      prefix: Token
+      token: 05c24fd41e9e9893160a591318e8962bde61e88d
+      disabled: false
+    metaSortKey: -1704904419466
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_9c82876adbf34ee3ae070c3e6f60466b
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705957467984
+    created: 1704837973314
+    url: http://127.0.0.1:8000/api/v1/menu-items/
+    name: menu items
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_221b2e820fa748db90472d19988a9b58
+          name: title
+          value: Pancake
+          description: ""
+          disabled: true
+        - id: pair_2e899b269b7f4f80932aca3be5801d28
+          name: price
+          value: "5.26"
+          description: ""
+          disabled: true
+        - id: pair_96590b4b10bc41559f6674795730a1ad
+          name: featured
+          value: "true"
+          description: ""
+          disabled: true
+        - id: pair_017ac94f27454b61b97851207355a626
+          name: category_id
+          value: "4"
+          description: ""
+          disabled: true
+    parameters:
+      - id: pair_1d81cee206684f988cab1879bcfc015d
+        name: page
+        value: "3"
+        description: ""
+        disabled: true
+      - id: pair_f5d733f5af0346a594d9aefd8b039e05
+        name: perpage
+        value: "5"
+        description: ""
+        disabled: true
+      - id: pair_f843708c72084c81a5b0f5770bbf1437
+        name: category
+        value: main-dish
+        description: ""
+        disabled: true
+      - id: pair_2d3b5495364c412db9980118bced6999
+        name: to_price
+        value: "2"
+        description: ""
+        disabled: true
+      - id: pair_702a52ed4d774319adb02f8c5fc4e1e0
+        name: search
+        value: steak
+        description: ""
+        disabled: true
+      - id: pair_9a925098aadc4467a52dc22fb552f8ad
+        name: ordering
+        value: -price
+        description: ""
+        disabled: false
+      - id: pair_5256b2ace8c74b9f897dc8706248a048
+        name: featured
+        value: "1"
+        description: ""
+        disabled: true
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      prefix: Token
+      token: 4635fb7fb250a557785008925794bb3dc08487a4
+      disabled: false
+    metaSortKey: -1704837973314
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_668e84f8b93646a8b062280b6ca4324c
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705957392313
+    created: 1704839892318
+    url: http://127.0.0.1:8000/api/v1/category/
+    name: category
+    description: ""
+    method: GET
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_e7f8993586db4a108246bbe7a4f03094
+          name: slug
+          value: drink
+          description: ""
+          disabled: false
+        - id: pair_30fdc24fff944c53a3da629d30cb6c58
+          name: title
+          value: Drink
+          description: ""
+          disabled: false
+    parameters:
+      - id: pair_712f7b2188c44d6d990ae981755240aa
+        name: page
+        value: "1"
+        description: ""
+        disabled: true
+      - id: pair_29086b334abe416792bcd106d5924a58
+        name: perpage
+        value: "3"
+        description: ""
+        disabled: true
+      - id: pair_42dcbe3a1c9b4434abb494bb0e80715d
+        name: search
+        value: dish
+        description: ""
+        disabled: true
+      - id: pair_c64807fb982347fb9a45a6a1557f7222
+        name: ordering
+        value: -id
+        description: ""
+        disabled: false
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      prefix: Token
+      token: 4635fb7fb250a557785008925794bb3dc08487a4
+    metaSortKey: -1704834377840
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_1b3096ff6dcb4179bad641b065308292
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705567837513
+    created: 1704828352961
+    url: http://127.0.0.1:8000/auth/users/me
+    name: display specific user me
+    description: ""
+    method: GET
+    body: {}
+    parameters: []
+    headers:
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      prefix: Token
+      token: f240148d582d999da95a2e0a394ffcb454fbcc4c
+    metaSortKey: -1704828352961
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_dbfe58c265744fb5907ed050c94356ef
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705567787544
+    created: 1704827623982
+    url: http://127.0.0.1:8000/auth/users
+    name: display all user (admin) or me if not admin
+    description: ""
+    method: GET
+    body: {}
+    parameters: []
+    headers:
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+      prefix: Token
+      token: 05c24fd41e9e9893160a591318e8962bde61e88d
+    metaSortKey: -1704827623982
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_17a158aaf43f49aa9dc8e9afeaf97051
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705956927441
+    created: 1704827636589
+    url: http://127.0.0.1:8000/token/login
+    name: generate access token
+    description: ""
+    method: POST
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_e0aa13ae23424e72a838bc9ad86eb1f3
+          name: username
+          value: jessica
+          description: ""
+          disabled: false
+        - id: pair_9e184c8bce2546d3a683a0c6f14683e0
+          name: password
+          value: customerjessica
+          description: ""
+          disabled: false
+        - id: pair_537f8040eae341dd88f20dd12a51e58e
+          name: username
+          value: johndoe
+          description: ""
+          disabled: true
+        - id: pair_bb4ee418738e4ee69242aaa47e549914
+          name: password
+          value: managerjohndoe
+          description: ""
+          disabled: true
+    parameters: []
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication: {}
+    metaSortKey: -1704827579076
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: req_8beb5c36af5f48f38b502883a00c1799
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1705085099663
+    created: 1704827534170
+    url: http://127.0.0.1:8000/auth/users/
+    name: create new user
+    description: ""
+    method: POST
+    body:
+      mimeType: application/x-www-form-urlencoded
+      params:
+        - id: pair_3b3676faffc64cae9ec64f7c370b2a09
+          name: username
+          value: johndoe
+          description: ""
+          disabled: true
+        - id: pair_f8fd295c2ca1462d91c49674b2edffff
+          name: password
+          value: managerjohn
+          description: ""
+          disabled: true
+        - id: pair_ad822b3be0004d498bc521bad10609e6
+          name: email
+          value: jimmy@little.lemon
+          description: ""
+          disabled: true
+        - id: pair_73e239dc1a2f4b90a87b543c30d23803
+          name: username
+          value: jimmydoe
+          description: ""
+          disabled: true
+        - id: pair_c067b6ec74e9417ba73718b119b7cdcd
+          name: password
+          value: hiringjimmy
+          description: ""
+          disabled: true
+        - id: pair_e19267edee324662a04437b3c68fe70c
+          name: email
+          value: jimmy@delivery.crew
+          description: ""
+          disabled: true
+        - id: pair_c4b87ab9d77d4899830657684d5cadaa
+          name: username
+          value: jessica
+          description: ""
+          disabled: true
+        - id: pair_84c5c6f4ccb24216b1f076cf752f197d
+          name: password
+          value: customerjessica
+          description: ""
+          disabled: true
+        - id: pair_6ecaca42491c431a9c9a24c0fef3aece
+          name: email
+          value: jessica@gmail.com
+          description: ""
+          disabled: true
+        - id: pair_910ac05280494efba22b45f2950e10ea
+          name: username
+          value: ashley
+          description: ""
+          disabled: true
+        - id: pair_9ad5ed422eaf4591ac7978a6c2a4f40c
+          name: password
+          value: customerashley
+          description: ""
+          disabled: true
+        - id: pair_1db92011652547f08ec3895b2d5acad0
+          name: email
+          value: ashley@mail.ru
+          description: ""
+          disabled: true
+        - id: pair_74321ffcc6644cf89979c91fd4408ff4
+          name: username
+          value: matthew
+          description: ""
+          disabled: true
+        - id: pair_84a258c898ec4e61a2fb5c429bbf11ad
+          name: password
+          value: managermatthew
+          description: ""
+          disabled: true
+        - id: pair_f31c96d19a134caaaffb4d3e14af570b
+          name: email
+          value: matthew@little.lemon
+          description: ""
+          disabled: true
+        - id: pair_63b9149df69640cb94fd1ee9adf81030
+          name: username
+          value: robert
+          description: ""
+          disabled: false
+        - id: pair_1779cdea94f9410f8528773d58edd872
+          name: password
+          value: deliveryrob
+          description: ""
+          disabled: false
+        - id: pair_9e2efa048bac432bb0a5042039667d78
+          name: email
+          value: robert@deliv.service
+          description: ""
+    parameters: []
+    headers:
+      - name: Content-Type
+        value: application/x-www-form-urlencoded
+      - name: User-Agent
+        value: insomnia/8.5.1
+    authentication:
+      type: bearer
+    metaSortKey: -1704827534170
+    isPrivate: false
+    pathParameters: []
+    settingStoreCookies: true
+    settingSendCookies: true
+    settingDisableRenderRequestBody: false
+    settingEncodeUrl: true
+    settingRebuildPath: true
+    settingFollowRedirects: global
+    _type: request
+  - _id: env_6f7bc842dfe59443285041fa27c391b2ff15ad8e
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1704823682523
+    created: 1704823682523
+    name: Base Environment
+    data: {}
+    dataPropertyOrder: null
+    color: null
+    isPrivate: false
+    metaSortKey: 1704823682523
+    _type: environment
+  - _id: jar_6f7bc842dfe59443285041fa27c391b2ff15ad8e
+    parentId: wrk_b22ec950d5a64d78a2efd5a361b0eaba
+    modified: 1704823682530
+    created: 1704823682530
+    name: Default Jar
+    cookies: []
+    _type: cookie_jar
